@@ -188,10 +188,23 @@ class FactoryEnvCfg(DirectRLEnvCfg):
 
 
 @configclass
+class TerminationsCfg:
+    """Termination terms for the MDP."""
+
+    # (1) Terminate if the episode length is exceeded
+    time_out = None
+    # (2) Terminate if the robot falls
+    object_reached_goal = None
+
+@configclass
 class FactoryTaskPegInsertCfg(FactoryEnvCfg):
     task_name = "peg_insert"
     task = PegInsert()
     episode_length_s = 10.0
+    terminations = TerminationsCfg(
+        time_out=None,
+        object_reached_goal=None,
+    )
 
 
 @configclass

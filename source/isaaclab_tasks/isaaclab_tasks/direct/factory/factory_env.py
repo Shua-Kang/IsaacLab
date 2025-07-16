@@ -298,10 +298,13 @@ class FactoryEnv(DirectRLEnv):
         env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(env_ids) > 0:
             self._reset_buffers(env_ids)
-
-        self.actions = (
-            self.cfg.ctrl.ema_factor * action.clone().to(self.device) + (1 - self.cfg.ctrl.ema_factor) * self.actions
-        )
+        action =  action[:,0:6]
+        # action[:,0] = 1.0
+        # print("action", action)
+        # self.actions = (
+        #     self.cfg.ctrl.ema_factor * action.clone().to(self.device) + (1 - self.cfg.ctrl.ema_factor) * self.actions
+        # )
+        self.actions = action
 
     def close_gripper_in_place(self):
         """Keep gripper in current position as gripper closes."""
@@ -389,6 +392,7 @@ class FactoryEnv(DirectRLEnv):
 
         self.ctrl_target_gripper_dof_pos = 0.0
         self.generate_ctrl_signals()
+        print("self.actions, target_euler_xyz, ctrl_target_fingertip_midpoint_pos", self.actions, target_euler_xyz, self.ctrl_target_fingertip_midpoint_pos)
 
     def _set_gains(self, prop_gains, rot_deriv_scale=1.0):
         """Set robot gains using critical damping."""
@@ -762,6 +766,7 @@ class FactoryEnv(DirectRLEnv):
             )
 
             ik_attempt += 1
+            break
 
         self.step_sim_no_action()
 

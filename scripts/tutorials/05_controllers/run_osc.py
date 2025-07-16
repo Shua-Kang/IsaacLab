@@ -136,7 +136,64 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
         contact_wrench_control_axes_task=[0, 0, 1, 0, 0, 0],
         nullspace_control="position",
     )
-    osc = OperationalSpaceController(osc_cfg, num_envs=scene.num_envs, device=sim.device)
+    osc = zero_joint_efforts = torch.zeros(scene.num_envs, robot.num_joints, device=sim.device)
+    joint_efforts = torch.zeros(scene.num_envs, len(arm_joint_ids), device=sim.device)
+
+    count = 0
+    # Simulation loop
+    while simulation_app.is_running():
+        # reset every 500 steps
+        if count % 500 == 0:
+            # reset joint state to default
+            default_joint_pos = robot.data.default_joint_pos.clone()
+            default_joint_vel = robot.data.default_joint_vel.clone()
+            robot.write_joint_state_to_sim(default_joint_pos, default_joint_vel)
+            robot.set_joint_effort_target(zero_joint_efforts)  # Set zero torques in the initial step
+            robot.write_data_to_sim()
+            robot.reset()
+            # reset contact sensor
+            contact_forces.reset()
+            # reset target pose
+            robot.update(sim_dt)
+            _, _, _, ee_pose_b, _, _, _, _, _, _ = update_states(
+                sim, scene, robot, ee_frame_idx, arm_joint_ids, contact_forces
+            )  # at reset, the jacobians are not updated to the latest state
+            command, ee_target_pose_b, ee_target_pose_w, current_goal_idx = update_target(
+                sim, scene, osc, root_pose_w, ee_target_set, current_goal_idx
+            )
+            # set the osc command
+            osc.reset()
+            command, task_frame_pose_b = convert_to_task_frame(osc, command=command, ee_target_pose_b=ee_target_pose_b)
+            osc.set_command(command=command, current_ee_pose_b=ee_pose_b, current_task_frame_pose_b=task_frame_pose_b)
+        else:
+            # get the updated states
+            (
+                jacobian_b,
+                mass_matrix,
+                gravity,
+                ee_pose_b,
+                ee_vel_b,
+                root_pose_w,
+                ee_pose_w,
+                ee_force_b,
+                joint_pos,
+                joint_vel,
+            ) = update_states(sim, scene, robot, ee_frame_idx, arm_joint_ids, contact_forces)
+            # compute the joint commands
+            joint_efforts = osc.compute(
+                jacobian_b=jacobian_b,
+                current_ee_pose_b=ee_pose_b,
+                current_ee_vel_b=ee_vel_b,
+                current_ee_force_b=ee_force_b,
+                mass_matrix=mass_matrix,
+                gravity=gravity,
+                current_joint_pos=joint_pos,
+                current_joint_vel=joint_vel,
+                nullspace_joint_pos_target=joint_centers,
+            )
+            # apply actions
+            robot.set_joint_effort_target(joint_efforts, joint_ids=arm_joint_ids)
+            robot.write_data_to_sim()(osc_cfg, num_envs=scene.num_envs, device=sim.device)
 
     # Markers
     frame_marker_cfg = FRAME_MARKER_CFG.copy()
