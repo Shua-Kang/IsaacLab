@@ -63,7 +63,7 @@ def design_scene():
 
     # Convert the windows-style path to a path Isaac Sim can understand
     # Note: Using os.path.normpath and replacing backslashes is a robust way to handle paths.
-    usd_path_raw = r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac\my_assets_new\lamp_base\lamp_base.usd"
+    usd_path_raw = r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\my_assets_new\franka_tacsl\franka_tacsl.usd"
     lighter_usd_path = os.path.normpath(usd_path_raw).replace("\\", "/")
 
     # Check if the file exists before proceeding

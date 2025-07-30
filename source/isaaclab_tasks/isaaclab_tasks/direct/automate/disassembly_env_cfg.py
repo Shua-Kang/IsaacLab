@@ -11,7 +11,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sim import PhysxCfg, SimulationCfg
 from isaaclab.sim.spawners.materials.physics_materials_cfg import RigidBodyMaterialCfg
 from isaaclab.utils import configclass
-
+import os
 from .disassembly_tasks_cfg import ASSET_DIR, Extraction
 
 OBS_DIM_CFG = {
@@ -125,11 +125,12 @@ class DisassemblyEnvCfg(DirectRLEnvCfg):
     )
 
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=128, env_spacing=2.0)
-
-    robot = ArticulationCfg(
+    usd_path_raw = r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\my_assets_new\franka_tacsl\franka_tacsl.usd"
+    robot_usd_path = os.path.normpath(usd_path_raw).replace("\\", "/")
+    rowbot = ArticulationCfg(
         prim_path="/World/envs/env_.*/Robot",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{ASSET_DIR}/franka_mimic.usd",
+            usd_path=robot_usd_path,
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=True,

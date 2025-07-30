@@ -187,7 +187,82 @@ class FactoryEnv(DirectRLEnv):
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
+        import isaaclab.sim.schemas as schemas_utils
 
+        from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg, spawn_rigid_body_material
+
+        soft_material_cfg = RigidBodyMaterialCfg(
+            compliant_contact_stiffness=350.0,
+            compliant_contact_damping=0.0
+            # 其他属性如 friction, restitution 会使用默认值
+        )
+        
+        # 在场景中创建一个新的物理材质 Prim。路径可以自定义，"/World/Looks/" 是常用约定
+        soft_material_path = "/World/Looks/SoftElastomerMaterial"
+        spawn_rigid_body_material(prim_path=soft_material_path, cfg=soft_material_cfg)
+        print(f"已创建自定义物理材质于: {soft_material_path}")
+
+        # --- 步骤 2: 将新材质应用到每个环境的机器人手指上 ---
+        
+        self.sim.step() # 确保材质和机器人 Prim 都已加载
+        
+        for i in range(self.scene.num_envs):
+            # 定义左右两个手指的 碰撞体 Prim 的路径
+            paths_to_modify = [
+                f"/World/envs/env_{i}/Robot/elastomer_right/collisions",
+                f"/World/envs/env_{i}/Robot/elastomer_left/collisions"
+            ]
+            from pxr import UsdShade, UsdPhysics
+            for path in paths_to_modify:
+                prim = self.scene.stage.GetPrimAtPath(path)
+                if not prim.IsValid():
+                    print(f"警告: 未找到 Prim: {path}")
+                    continue
+
+                # (a) 确保碰撞是启用的 (如果之前禁用了)
+
+                # (b) 将我们创建的物理材质“绑定”到这个碰撞体上
+                # 这是实现您需求的核心步骤
+                material_binding_api = UsdShade.MaterialBindingAPI.Apply(prim)
+                material_binding_api.Bind(
+                    UsdShade.Material.Get(self.scene.stage, soft_material_path),
+                    bindingStrength=UsdShade.Tokens.strongerThanDescendants
+                )
+                
+                print(f"成功将材质 '{soft_material_path}' 应用到: {path}")
+
+
+        # collider_cfg = schemas_utils.CollisionPropertiesCfg(
+        #     collision_enabled=True,   # 启用碰撞
+        #     contact_offset=0.05,      # 设置 contact offset (单位:米)
+        #     rest_offset=0.01        # 设置 rest offset (单位:米)
+        # )
+        # # 提醒：你需要调整 contact_offset 和 rest_offset 的值来获得期望的“柔度”
+        
+        # # 2. 遍历所有环境，修改每个机器人手指的碰撞属性
+        # for i in range(self.scene.num_envs):
+        #     # 定义左右两个手指的 碰撞体 Prim 的路径
+        #     paths_to_modify = [
+        #         f"/World/envs/env_{i}/Robot/elastomer_right/collisions",
+        #         f"/World/envs/env_{i}/Robot/elastomer_left/collisions"
+        #     ]
+
+        #     for path in paths_to_modify:
+        #         # 3. 调用 Isaac Lab 的官方工具函数来修改属性
+        #         was_modified = schemas_utils.modify_collision_properties(
+        #             prim_path=path,
+        #             cfg=collider_cfg,
+        #             stage=self.scene.stage
+        #         )
+                
+        #         # 添加打印信息用于调试
+        #         if was_modified:
+        #             print(f"成功使用官方API修改属性: {path}")
+        #         else:
+        #             # 根据文档，如果 prim 不存在或没有应用 schema，此函数会返回 False
+        #             print(f"警告: modify_collision_properties 未成功作用于 {path}")
+
+        # ==================================================================
     def _compute_intermediate_values(self, dt):
         """Get values computed from raw tensors. This includes adding noise."""
         # TODO: A lot of these can probably only be set once?
