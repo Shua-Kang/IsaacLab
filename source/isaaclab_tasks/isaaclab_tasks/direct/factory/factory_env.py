@@ -467,7 +467,6 @@ class FactoryEnv(DirectRLEnv):
 
         self.ctrl_target_gripper_dof_pos = 0.0
         self.generate_ctrl_signals()
-        print("self.actions, target_euler_xyz, ctrl_target_fingertip_midpoint_pos", self.actions, target_euler_xyz, self.ctrl_target_fingertip_midpoint_pos)
 
     def _set_gains(self, prop_gains, rot_deriv_scale=1.0):
         """Set robot gains using critical damping."""
