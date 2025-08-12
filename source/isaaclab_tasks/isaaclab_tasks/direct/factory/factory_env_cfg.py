@@ -123,6 +123,7 @@ class FactoryEnvCfg(DirectRLEnvCfg):
             friction_correlation_distance=0.00625,
             gpu_max_rigid_contact_count=2**23,
             gpu_max_rigid_patch_count=2**23,
+            gpu_collision_stack_size=2**28,
             gpu_max_num_partitions=1,  # Important for stable simulation.
         ),
         physics_material=RigidBodyMaterialCfg(
@@ -145,6 +146,8 @@ class FactoryEnvCfg(DirectRLEnvCfg):
         "franka.usd",
     )
     robot_usd_path = os.path.normpath(usd_path_raw).replace("\\", "/")
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=128, env_spacing=2.0, clone_in_fabric=True)
+
     robot = ArticulationCfg(
         prim_path="/World/envs/env_.*/Robot",
         spawn=sim_utils.UsdFileCfg(
@@ -193,8 +196,8 @@ class FactoryEnvCfg(DirectRLEnvCfg):
                 damping=0.0,
                 friction=0.0,
                 armature=0.0,
-                effort_limit=87,
-                velocity_limit=124.6,
+                effort_limit_sim=87,
+                velocity_limit_sim=124.6,
             ),
             "panda_arm2": ImplicitActuatorCfg(
                 joint_names_expr=["panda_joint[5-7]"],
@@ -202,13 +205,13 @@ class FactoryEnvCfg(DirectRLEnvCfg):
                 damping=0.0,
                 friction=0.0,
                 armature=0.0,
-                effort_limit=12,
-                velocity_limit=149.5,
+                effort_limit_sim=12,
+                velocity_limit_sim=149.5,
             ),
             "panda_hand": ImplicitActuatorCfg(
                 joint_names_expr=["panda_finger_joint[1-2]"],
-                effort_limit=40.0,
-                velocity_limit=0.04,
+                effort_limit_sim=40.0,
+                velocity_limit_sim=0.04,
                 stiffness=7500.0,
                 damping=173.0,
                 friction=0.1,
