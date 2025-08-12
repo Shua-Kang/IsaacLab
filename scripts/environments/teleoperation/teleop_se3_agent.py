@@ -28,18 +28,20 @@ AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
 args_cli = parser.parse_args()
 
-app_launcher_args = vars(args_cli)
-
+# -- FIX: Correctly handle AppLauncher arguments --
+# The AppLauncher is designed to take the parsed arguments directly.
+# This ensures flags like --enable_cameras are processed correctly.
 if args_cli.enable_pinocchio:
     # Import pinocchio before AppLauncher to force the use of the version installed by IsaacLab and
     # not the one installed by Isaac Sim pinocchio is required by the Pink IK controllers and the
     # GR1T2 retargeter
     import pinocchio  # noqa: F401
 if "handtracking" in args_cli.teleop_device.lower():
-    app_launcher_args["xr"] = True
+    # Add the 'xr' argument to the namespace if handtracking is used
+    args_cli.xr = True
 
 # launch omniverse app
-app_launcher = AppLauncher(app_launcher_args)
+app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
 """Rest everything follows."""

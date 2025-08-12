@@ -11,9 +11,11 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sim import PhysxCfg, SimulationCfg
 from isaaclab.sim.spawners.materials.physics_materials_cfg import RigidBodyMaterialCfg
 from isaaclab.utils import configclass
-
+from isaaclab.sensors import CameraCfg
 from .factory_tasks_cfg import ASSET_DIR, FactoryTask, GearMesh, NutThread, PegInsert
 import os
+from isaaclab.sensors import TiledCamera, TiledCameraCfg, save_images_to_file
+
 
 OBS_DIM_CFG = {
     "fingertip_pos": 3,
@@ -57,7 +59,15 @@ class CtrlCfg:
     pos_action_threshold = [0.02, 0.02, 0.02]
     rot_action_threshold = [0.097, 0.097, 0.097]
 
-    reset_joints = [1.5178e-03, -1.9651e-01, -1.4364e-03, -1.9761, -2.7717e-04, 1.7796, 7.8556e-01]
+    reset_joints = [
+        1.5178e-03,
+        -1.9651e-01,
+        -1.4364e-03,
+        -1.9761,
+        -2.7717e-04,
+        1.7796,
+        7.8556e-01,
+    ]
     reset_task_prop_gains = [300, 300, 300, 20, 20, 20]
     reset_rot_deriv_scale = 10.0
     default_task_prop_gains = [100, 100, 100, 30, 30, 30]
@@ -75,7 +85,12 @@ class FactoryEnvCfg(DirectRLEnvCfg):
     # num_*: will be overwritten to correspond to obs_order, state_order.
     observation_space = 21
     state_space = 72
-    obs_order: list = ["fingertip_pos_rel_fixed", "fingertip_quat", "ee_linvel", "ee_angvel"]
+    obs_order: list = [
+        "fingertip_pos_rel_fixed",
+        "fingertip_quat",
+        "ee_linvel",
+        "ee_angvel",
+    ]
     state_order: list = [
         "fingertip_pos",
         "fingertip_quat",
@@ -117,7 +132,18 @@ class FactoryEnvCfg(DirectRLEnvCfg):
     )
 
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=128, env_spacing=2.0)
-    usd_path_raw = r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\my_assets_new\franka_tacsl_correct\franka.usd"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    usd_path_raw = os.path.join(
+        current_dir,
+        "..",
+        "..",
+        "..",
+        "..",
+        "..",
+        "my_assets_new",
+        "franka_tacsl_correct",
+        "franka.usd",
+    )
     robot_usd_path = os.path.normpath(usd_path_raw).replace("\\", "/")
     robot = ArticulationCfg(
         prim_path="/World/envs/env_.*/Robot",
@@ -142,7 +168,9 @@ class FactoryEnvCfg(DirectRLEnvCfg):
                 solver_velocity_iteration_count=1,
                 fix_root_link=True,
             ),
-            collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                contact_offset=0.005, rest_offset=0.0
+            ),
         ),
         init_state=ArticulationCfg.InitialStateCfg(
             joint_pos={
@@ -188,6 +216,21 @@ class FactoryEnvCfg(DirectRLEnvCfg):
             ),
         },
     )
+    tactile_depth_camera : CameraCfg = CameraCfg(
+        prim_path="/World/envs/env_0/Robot/panda_hand/Camera/tactile_camera",
+        update_period=0.0,
+        height=320,
+        width=240,
+        data_types=["distance_to_image_plane"],  # 等效于 'depth'
+        depth_clipping_behavior="none",  # (near_plane, far_plane)
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.0, 0.0, -0.02034),  # camera_dist
+            rot=(0.0, 0.707, 0.707, 0.0),  # 将欧拉角 [pi/2, -pi/2, 0] 转换为四元数
+        ),
+        spawn=sim_utils.PinholeCameraCfg(),
+        debug_vis=True,
+        update_latest_camera_pose = True
+    )
 
 
 @configclass
@@ -198,6 +241,7 @@ class TerminationsCfg:
     time_out = None
     # (2) Terminate if the robot falls
     object_reached_goal = None
+
 
 @configclass
 class FactoryTaskPegInsertCfg(FactoryEnvCfg):
