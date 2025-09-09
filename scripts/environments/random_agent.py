@@ -8,7 +8,7 @@
 """Launch Isaac Sim Simulator first."""
 
 import argparse
-
+import torchvision
 from isaaclab.app import AppLauncher
 
 # add argparse arguments
@@ -57,10 +57,10 @@ def main():
         # run everything in inference mode
         with torch.inference_mode():
             # sample actions from -1 to 1
-            actions = 2 * torch.rand(env.action_space.shape, device=env.unwrapped.device) - 1
+            actions = 0.1 * 2 * torch.rand(env.action_space.shape, device=env.unwrapped.device) - 1
             # apply actions
-            env.step(actions)
-
+            output = env.step(actions * 0.0)
+            # torchvision.utils.save_image(output[0]["policy"]["wrist_cam"].transpose(1, 3).transpose(2, 3) / 255.0, r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\wrist_cam.png" )
     # close the simulator
     env.close()
 

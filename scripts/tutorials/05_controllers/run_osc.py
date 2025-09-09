@@ -53,6 +53,7 @@ from isaaclab.utils.math import (
     quat_inv,
     subtract_frame_transforms,
 )
+from isaaclab.sensors import Camera, CameraCfg
 
 ##
 # Pre-defined configs
@@ -97,6 +98,22 @@ class SceneCfg(InteractiveSceneCfg):
         debug_vis=False,
     )
 
+    # tactile_depth_camera : CameraCfg = CameraCfg(
+    #     prim_path="{ENV_REGEX_NS}/Robot/panda_hand/Camera/tactile_camera",
+    #     update_period=0.0,
+    #     height=320,
+    #     width=240,
+    #     data_types=["distance_to_image_plane"],  # 等效于 'depth'
+    #     depth_clipping_behavior="none",  # (near_plane, far_plane)
+    #     offset=CameraCfg.OffsetCfg(
+    #         pos=(0.0, 0.0, -0.02034),  # camera_dist
+    #         rot=(0.0, 0.707, 0.707, 0.0),  # 将欧拉角 [pi/2, -pi/2, 0] 转换为四元数
+    #     ),
+    #     spawn=sim_utils.PinholeCameraCfg(),
+    #     debug_vis=True,
+    #     update_latest_camera_pose = True
+    # )
+
     robot = FRANKA_PANDA_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
     robot.actuators["panda_shoulder"].stiffness = 0.0
     robot.actuators["panda_shoulder"].damping = 0.0
@@ -105,7 +122,7 @@ class SceneCfg(InteractiveSceneCfg):
     robot.spawn.rigid_props.disable_gravity = True
 
 
-def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
+def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, tiled_camera: Camera):
     """Runs the simulation loop.
 
     Args:
@@ -116,7 +133,7 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     # Extract scene entities for readability.
     robot = scene["robot"]
     contact_forces = scene["contact_forces"]
-
+    # depth_image = tiled_camera.data.output["distance_to_image_plane"]
     # Obtain indices for the end-effector and arm joints
     ee_frame_name = "panda_leftfinger"
     arm_joint_names = ["panda_joint.*"]
@@ -138,12 +155,13 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     )
     osc = zero_joint_efforts = torch.zeros(scene.num_envs, robot.num_joints, device=sim.device)
     joint_efforts = torch.zeros(scene.num_envs, len(arm_joint_ids), device=sim.device)
+    sim_dt = sim.get_physics_dt()
 
     count = 0
     # Simulation loop
     while simulation_app.is_running():
         # reset every 500 steps
-        if count % 500 == 0:
+        if count % 500 == 0 and count > 0:
             # reset joint state to default
             default_joint_pos = robot.data.default_joint_pos.clone()
             default_joint_vel = robot.data.default_joint_vel.clone()
@@ -526,12 +544,15 @@ def main():
     # Design scene
     scene_cfg = SceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0)
     scene = InteractiveScene(scene_cfg)
+    # import pdb; pdb.set_trace()
+    # tiled_camera = Camera(scene_cfg.tactile_depth_camera)
+    tiled_camera = None
     # Play the simulator
     sim.reset()
     # Now we are ready!
     print("[INFO]: Setup complete...")
     # Run the simulator
-    run_simulator(sim, scene)
+    run_simulator(sim, scene, tiled_camera)
 
 
 if __name__ == "__main__":

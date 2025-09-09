@@ -27,7 +27,7 @@ from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Tutorial on adding sensors on a robot.")
-parser.add_argument("--num_envs", type=int, default=2, help="Number of environments to spawn.")
+parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -127,7 +127,7 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
             print("[INFO]: Resetting robot state...")
         # Apply default actions to the robot
         # -- generate actions/commands
-        targets = scene["robot"].data.default_joint_pos
+        targets = scene["robot"].data.default_joint_pos + torch.rand_like(scene["robot"].data.default_joint_pos) * 0.1
         # -- apply action to the robot
         scene["robot"].set_joint_position_target(targets)
         # -- write data to sim
@@ -151,7 +151,15 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
         print("-------------------------------")
         print(scene["contact_forces"])
         print("Received max contact force of: ", torch.max(scene["contact_forces"].data.net_forces_w).item())
-
+        # visualize by matplotlib
+        import matplotlib.pyplot as plt
+        rgb_image = scene["camera"].data.output["rgb"].cpu().numpy()
+        depth_image = scene["camera"].data.output["distance_to_image_plane"].cpu().numpy()
+        # non block show
+        plt.imshow(rgb_image[0])
+        plt.pause(0.01)
+        # plt.imshow(depth_image[0])
+        # plt.pause(0.01)
 
 def main():
     """Main function."""
