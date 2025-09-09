@@ -145,6 +145,8 @@ class FactoryEnvCfg(DirectRLEnvCfg):
         "franka_tacsl_5.0",
         "franka.usd",
     )
+    #usd_path_raw = r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\my_assets_new\franka_tacsl_correct\franka.usd"
+    # usd_path_raw = r"/p/langdiffuse/isaac_lab_xh/IsaacLab/my_assets_new/franka_tacsl_correct/franka.usd"
     robot_usd_path = os.path.normpath(usd_path_raw).replace("\\", "/")
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=128, env_spacing=2.0, clone_in_fabric=True)
 
