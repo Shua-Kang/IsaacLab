@@ -1543,7 +1543,7 @@ class LighterEnv(DirectRLEnv):
         # self.initialize_tactile_image()
         self.step_sim_no_action()
 
-        self.randomize_initial_state(env_ids)
+        # self.randomize_initial_state(env_ids)
 
     def _set_assets_to_default_pose(self, env_ids):
         """Move assets to default pose before randomization."""

@@ -7,7 +7,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
-
+import os
 ASSET_DIR = f"{ISAACLAB_NUCLEUS_DIR}/Factory"
 
 
@@ -479,10 +479,23 @@ class LighterTaskCfg(FactoryTask):
     success_threshold: float = 0.04
     engage_threshold: float = 0.9
 
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    usd_path_raw = os.path.join(
+        current_dir,
+        "..",
+        "..",
+        "..",
+        "..",
+        "..",
+        "my_assets_new",
+        "lighter",
+        "lighter.usd",
+    )
+
     fixed_asset: ArticulationCfg = ArticulationCfg(
-        prim_path="/World/envs/env_.*/FixedAsset",
+        prim_path="/World/envs/env_.*/lighter",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=fixed_asset_cfg.usd_path,
+            usd_path=usd_path_raw,
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
@@ -525,7 +538,7 @@ class LighterTaskCfg(FactoryTask):
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
         ),
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.0, 0.4, 0.1), rot=(1.0, 0.0, 0.0, 0.0), joint_pos={}, joint_vel={}
+            pos=(0.0, 0.4, 10.1), rot=(1.0, 0.0, 0.0, 0.0), joint_pos={}, joint_vel={}
         ),
         actuators={},
     )
