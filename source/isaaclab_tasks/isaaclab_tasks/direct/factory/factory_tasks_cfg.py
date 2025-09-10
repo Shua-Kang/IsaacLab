@@ -8,6 +8,7 @@ from isaaclab.assets import ArticulationCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 import os
+from isaaclab.actuators.actuator_cfg import ImplicitActuatorCfg
 ASSET_DIR = f"{ISAACLAB_NUCLEUS_DIR}/Factory"
 
 
@@ -496,6 +497,7 @@ class LighterTaskCfg(FactoryTask):
         prim_path="/World/envs/env_.*/lighter",
         spawn=sim_utils.UsdFileCfg(
             usd_path=usd_path_raw,
+            scale=(1., 1., 1.),
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
@@ -511,11 +513,39 @@ class LighterTaskCfg(FactoryTask):
             ),
             mass_props=sim_utils.MassPropertiesCfg(mass=fixed_asset_cfg.mass),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+            articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+                enabled_self_collisions=False,
+                solver_position_iteration_count=192,
+                solver_velocity_iteration_count=1,
+                fix_root_link=False,
+            )
         ),
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.6, 0.0, 0.05), rot=(1.0, 0.0, 0.0, 0.0), joint_pos={}, joint_vel={}
+            pos=(0.6, 0.0, 0.02), 
+            # rot=(0.5, 0.5, -0.5, 0.5), 
+            rot=(0.7071068 , 0.7071068, 0, 0), 
+            joint_pos={"joint_0": 0.00871, "joint_2": 0}, joint_vel={}
         ),
-        actuators={},
+        actuators={
+            "joint_0": ImplicitActuatorCfg(
+                joint_names_expr = "joint_0",
+                stiffness=0.0,
+                damping=0.0,
+                friction=0.0,
+                armature=0.0,
+                effort_limit_sim=12,
+                velocity_limit_sim=149.5,
+            ),
+            "joint_2": ImplicitActuatorCfg(
+                joint_names_expr = "joint_2",
+                stiffness=0.0,
+                damping=0.0,
+                friction=0.0,
+                armature=0.0,
+                effort_limit_sim=12,
+                velocity_limit_sim=149.5,
+            )
+        },
     )
     held_asset: ArticulationCfg = ArticulationCfg(
         prim_path="/World/envs/env_.*/HeldAsset",
@@ -536,9 +566,15 @@ class LighterTaskCfg(FactoryTask):
             ),
             mass_props=sim_utils.MassPropertiesCfg(mass=held_asset_cfg.mass),
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+            articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+                enabled_self_collisions=False,
+                solver_position_iteration_count=192,
+                solver_velocity_iteration_count=1,
+                fix_root_link=False,
+            )
         ),
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.0, 0.4, 10.1), rot=(1.0, 0.0, 0.0, 0.0), joint_pos={}, joint_vel={}
+            pos=(0.0, 0.4, 1000.1), rot=(1.0, 0.0, 0.0, 0.0), joint_pos={}, joint_vel={}
         ),
         actuators={},
     )

@@ -23,6 +23,9 @@ OBS_DIM_CFG = {
     "fingertip_quat": 4,
     "ee_linvel": 3,
     "ee_angvel": 3,
+    "lighter_joints": 1,
+    "fixed_pos": 3,
+    "fixed_quat": 4,
 }
 
 STATE_DIM_CFG = {
@@ -32,6 +35,7 @@ STATE_DIM_CFG = {
     "ee_linvel": 3,
     "ee_angvel": 3,
     "joint_pos": 7,
+    "lighter_joints": 1,
     "held_pos": 3,
     "held_pos_rel_fixed": 3,
     "held_quat": 4,
@@ -264,13 +268,16 @@ class LighterEnvCfg(DirectRLEnvCfg):
     decimation = 8
     action_space = 6
     # num_*: will be overwritten to correspond to obs_order, state_order.
-    observation_space = 21
-    state_space = 72
+    observation_space = 29
+    state_space = 73
     obs_order: list = [
-        "fingertip_pos_rel_fixed",
+        "fingertip_pos",
         "fingertip_quat",
         "ee_linvel",
         "ee_angvel",
+        "lighter_joints",
+        "fixed_pos",
+        "fixed_quat",
     ]
     state_order: list = [
         "fingertip_pos",
@@ -280,6 +287,7 @@ class LighterEnvCfg(DirectRLEnvCfg):
         "joint_pos",
         "held_pos",
         "held_pos_rel_fixed",
+        "lighter_joints",
         "held_quat",
         "fixed_pos",
         "fixed_quat",
@@ -465,6 +473,10 @@ class FactoryTaskGearMeshCfg(FactoryEnvCfg):
     task_name = "gear_mesh"
     task = GearMesh()
     episode_length_s = 20.0
+    terminations = TerminationsCfg(
+        time_out=None,
+        object_reached_goal=None,
+    )
 
 
 @configclass

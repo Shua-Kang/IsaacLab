@@ -14,11 +14,11 @@ from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Keyboard teleoperation for Isaac Lab environments.")
-parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
+parser.add_argument("--num_envs", type=int, default=16, help="Number of environments to simulate.")
 parser.add_argument(
     "--teleop_device",
     type=str,
-    default="keyboard",
+    default="spacemouse",
     choices=["keyboard", "spacemouse", "gamepad", "handtracking"],
     help="Device for interacting with environment",
 )
@@ -243,7 +243,7 @@ def main() -> None:
                     actions = action.repeat(env.num_envs, 1)
                     # apply actions
                     actions = actions[:,0:6] * 20
-                    print(actions)
+                    # print(actions)
                     env.step(actions)
                 else:
                     env.sim.render()

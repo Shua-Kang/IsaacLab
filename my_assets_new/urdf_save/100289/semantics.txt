@@ -1,0 +1,3 @@
+link_0 hinge wheel
+link_1 free lighter_body
+link_2 hinge rotation_lid

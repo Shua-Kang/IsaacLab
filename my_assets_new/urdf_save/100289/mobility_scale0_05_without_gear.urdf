@@ -1,0 +1,365 @@
+<?xml version="1.0" ?>
+<robot name="partnet_2728e54436010242c241649791db938a">
+	<link name="base"/>
+	<link name="link_0">
+		<visual name="wheel_2">
+			<origin xyz="1.3813133448607963e-07 -0.010159508367194314 0.026694092022737776"/>
+			<geometry>
+				<mesh filename="textured_objs/original_8.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="wheel_2">
+			<origin xyz="1.3813133448607963e-07 -0.010159508367194314 0.026694092022737776"/>
+			<geometry>
+				<mesh filename="textured_objs/original_7.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<!-- <collision>
+			<origin xyz="1.3813133448607963e-07 -0.010159508367194314 0.026694092022737776"/>
+			<geometry>
+				<mesh filename="textured_objs/original_8.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision> -->
+		<!-- <collision>
+			<origin xyz="1.3813133448607963e-07 -0.010159508367194314 0.026694092022737776"/>
+			<geometry>
+				<mesh filename="textured_objs/original_7.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision> -->
+	</link>
+	<joint name="joint_0" type="continuous">
+		<origin xyz="-1.3813133448607963e-07 0.010159508367194314 -0.026694092022737776"/>
+		<axis xyz="-0.9999999772415686 0.00019762253341439444 8.038778887284483e-05"/>
+		<child link="link_0"/>
+		<parent link="link_1"/>
+	</joint>
+	<link name="link_1">
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_29.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_21.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_30.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_28.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_22.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_26.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_2.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_27.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_23.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_11.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_18.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_25.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_17.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_12.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_24.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_20.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_1.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="base_body_5">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_19.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_29.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_21.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_30.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_28.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_22.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_26.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_2.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_27.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_23.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_11.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_18.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_25.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_17.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_12.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_24.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_20.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_1.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="textured_objs/original_19.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+	</link>
+	<joint name="joint_1" type="fixed">
+		<origin rpy="0 0 0" xyz="0 0 0"/>
+		<child link="link_1"/>
+		<parent link="base"/>
+	</joint>
+	<link name="link_2">
+		<visual name="lid_1">
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_5.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_6.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_16.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_15.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_14.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_13.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_3.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<visual name="connector_4">
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_9.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</visual>
+		<collision>
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_5.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_6.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_16.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_15.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_14.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_13.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_3.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+		<collision>
+			<origin xyz="0 0.00045042500000000007 -0.008608874999999998"/>
+			<geometry>
+				<mesh filename="textured_objs/original_9.obj" scale="0.05 0.05 0.05"/>
+			</geometry><sdf resolution="128"/>
+		</collision>
+	</link>
+	<joint name="joint_2" type="revolute">
+		<origin xyz="0 -0.00045042500000000007 0.008608874999999998"/>
+		<axis xyz="1 0 0"/>
+		<child link="link_2"/>
+		<parent link="link_1"/>
+		<limit effort="1.0" velocity="1.0" lower="-1.5707963267948966" upper="-0.0"/>
+
+	</joint>
+</robot>

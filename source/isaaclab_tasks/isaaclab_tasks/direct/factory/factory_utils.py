@@ -49,7 +49,7 @@ def set_body_inertias(robot, num_envs):
 def get_held_base_pos_local(task_name, fixed_asset_cfg, num_envs, device):
     """Get transform between asset default frame and geometric base frame."""
     held_base_x_offset = 0.0
-    if task_name == "peg_insert":
+    if task_name == "peg_insert" or task_name == "lighter":
         held_base_z_offset = 0.0
     elif task_name == "gear_mesh":
         gear_base_offset = fixed_asset_cfg.medium_gear_base_offset
@@ -81,7 +81,7 @@ def get_held_base_pose(held_pos, held_quat, task_name, fixed_asset_cfg, num_envs
 def get_target_held_base_pose(fixed_pos, fixed_quat, task_name, fixed_asset_cfg, num_envs, device):
     """Get target poses for keypoint and success computation."""
     fixed_success_pos_local = torch.zeros((num_envs, 3), device=device)
-    if task_name == "peg_insert":
+    if task_name == "peg_insert" or task_name == "lighter":
         fixed_success_pos_local[:, 2] = 0.0
     elif task_name == "gear_mesh":
         gear_base_offset = fixed_asset_cfg.medium_gear_base_offset
