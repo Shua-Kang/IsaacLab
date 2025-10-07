@@ -1,0 +1,1324 @@
+<?xml version="1.0" ?>
+<robot name="lighter">
+	<link name="base"/>
+	<link name="link_0">
+		<visual name="lid_1">
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_9.obj"/>
+			</geometry>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_3.obj"/>
+			</geometry>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_4.obj"/>
+			</geometry>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_6.obj"/>
+			</geometry>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_7.obj"/>
+			</geometry>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_5.obj"/>
+			</geometry>
+		</visual>
+		<visual name="lid_1">
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_8.obj"/>
+			</geometry>
+		</visual>
+		<collision>
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_9.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_3.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_4.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_6.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_7.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_5.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 -0.10520850000000001 -0.4241051616012345"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_8.obj"/>
+			</geometry>
+		</collision>
+	</link>
+	<joint name="joint_0" type="revolute">
+		<origin xyz="0 0.10520850000000001 0.4241051616012345"/>
+		<axis xyz="1 0 0"/>
+		<child link="link_0"/>
+		<parent link="link_2"/>
+		<limit lower="-0.5235987755982988" upper="2.443460952792061"/>
+	</joint>
+	<link name="link_1">
+		<visual name="wheel_2">
+			<origin xyz="0.007726519008005121 -0.3135493787077905 0.358357969606842"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_112.obj"/>
+			</geometry>
+		</visual>
+		<visual name="wheel_2">
+			<origin xyz="0.007726519008005121 -0.3135493787077905 0.358357969606842"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_108.obj"/>
+			</geometry>
+		</visual>
+		<visual name="wheel_2">
+			<origin xyz="0.007726519008005121 -0.3135493787077905 0.358357969606842"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_113.obj"/>
+			</geometry>
+		</visual>
+		<collision>
+			<origin xyz="0.007726519008005121 -0.3135493787077905 0.358357969606842"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_112.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0.007726519008005121 -0.3135493787077905 0.358357969606842"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_108.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0.007726519008005121 -0.3135493787077905 0.358357969606842"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_113.obj"/>
+			</geometry>
+		</collision>
+	</link>
+	<joint name="joint_1" type="continuous">
+		<origin xyz="-0.007726519008005121 0.3135493787077905 -0.358357969606842"/>
+		<axis xyz="-0.9993308045345074 0.013997456377865309 0.03379370242166513"/>
+		<child link="link_1"/>
+		<parent link="link_2"/>
+	</joint>
+	<link name="link_2">
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_29.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_103.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_100.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_21.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_30.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_36.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_28.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_96.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_64.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_43.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_71.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_52.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_83.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_22.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_26.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_110.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_104.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_65.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_33.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_44.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_106.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_16.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_86.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_13.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_45.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_35.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_49.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_93.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_61.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_39.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_59.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_77.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_114.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_54.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_63.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_27.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_87.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_51.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_55.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_50.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_111.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_31.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_37.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_48.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_15.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_85.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_56.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_76.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_72.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_99.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_62.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_75.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_23.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_66.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_58.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_98.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_67.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_69.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_11.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_38.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_68.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_80.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_34.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_18.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_70.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_74.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_91.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_25.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_17.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_73.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_12.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_92.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_42.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_79.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_102.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_24.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_20.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_88.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_115.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_32.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_47.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_95.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_53.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_105.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_101.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_81.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_84.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_94.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_78.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_97.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_89.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_82.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_60.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_19.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_90.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_40.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_46.obj"/>
+			</geometry>
+		</visual>
+		<visual name="base_body_3">
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_57.obj"/>
+			</geometry>
+		</visual>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_29.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_103.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_100.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_21.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_30.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_36.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_28.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_96.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_64.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_43.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_71.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_52.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_83.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_22.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_26.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_110.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_104.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_65.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_33.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_44.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_106.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_16.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_86.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_13.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_45.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_35.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_49.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_93.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_61.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_39.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_59.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_77.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_114.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_54.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_63.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_27.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_87.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_51.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_55.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_50.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_111.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_31.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_37.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_48.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_15.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_85.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_56.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_76.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_72.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_99.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_62.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_75.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_23.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_66.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_58.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_98.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_67.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_69.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_11.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_38.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_68.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_80.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_34.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_18.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_70.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_74.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_91.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_25.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_17.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_73.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_12.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_92.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_42.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_79.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_102.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_24.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_20.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_88.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_115.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_32.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_47.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_95.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_53.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_105.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_101.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_81.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_84.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_94.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_78.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_97.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_89.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_82.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_60.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_19.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_90.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_40.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_46.obj"/>
+			</geometry>
+		</collision>
+		<collision>
+			<origin xyz="0 0 0"/>
+			<geometry>
+				<mesh filename="C:\Users\shua\Downloads\partnet-mobility-v0\dataset\100317\textured_objs\original_57.obj"/>
+			</geometry>
+		</collision>
+	</link>
+	<joint name="joint_2" type="fixed">
+		<origin rpy="1.570796326794897 0 -1.570796326794897" xyz="0 0 0"/>
+		<child link="link_2"/>
+		<parent link="base"/>
+	</joint>
+</robot>

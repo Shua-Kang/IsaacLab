@@ -138,7 +138,8 @@ class TactileSystem:
         self.cube_cfg = ArticulationCfg(
             prim_path="/World/Cube",
             spawn=sim_utils.UsdFileCfg(
-                usd_path=r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\my_assets_new\ball_rolling_cube\cube.usd",
+                # usd_path=r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\my_assets_new\ball_rolling_cube\cube.usd",
+                usd_path=r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\my_assets_new\ball_rolling_cube\cube.usd",
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(disable_gravity=False),
                 mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
                 # collision_props=sim_utils.CollisionPropertiesCfg(
@@ -179,7 +180,7 @@ class TactileSystem:
         print("[INFO] Generating tactile points...")
         sensor_size = (0.05,0.05,0.02)
         # 我们只在顶面 (Z+) 创建点
-        top_face_z = -sensor_size[2] - 0.005
+        top_face_z = -sensor_size[2] - 0.004
         # top_face_z = 0
 
         x = torch.linspace(
@@ -407,9 +408,12 @@ class TactileSystem:
         tactile_shear_force_y = (tactile_shear_y_axis * tactile_force_pad).sum(-1)
         tactile_shear_force = torch.cat((tactile_shear_force_x.unsqueeze(-1), tactile_shear_force_y.unsqueeze(-1)), dim=-1)
         if self.enable_visualization:
-            tactile_image = visualize_tactile_shear_image(tactile_normal_force[0].view((self.num_rows, self.num_cols)).cpu().numpy(), tactile_shear_force[0].view((self.num_rows, self.num_cols, 2)).cpu().numpy(), normal_force_threshold=0.0008, shear_force_threshold=0.0008)
+            tactile_image = visualize_tactile_shear_image(tactile_normal_force[0].view((self.num_rows, self.num_cols)).cpu().numpy(), tactile_shear_force[0].view((self.num_rows, self.num_cols, 2)).cpu().numpy(), normal_force_threshold=0.003, shear_force_threshold=0.001)
             # import pdb; pdb.set_trace()
-            cv2.imwrite(os.path.join(r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac", "tactile_shear_image.png"), (visualize_tactile_shear_image(tactile_normal_force[0].view((self.num_rows, self.num_cols)).cpu().numpy(), tactile_shear_force[0].view((self.num_rows, self.num_cols, 2)).cpu().numpy(), normal_force_threshold=0.003, shear_force_threshold=0.002)*255.0).astype(np.uint8))
+            # cv2.imwrite(os.path.join(r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac", "tactile_shear_image.png"), (visualize_tactile_shear_image(tactile_normal_force[0].view((self.num_rows, self.num_cols)).cpu().numpy(), tactile_shear_force[0].view((self.num_rows, self.num_cols, 2)).cpu().numpy(), normal_force_threshold=0.003, shear_force_threshold=0.002)*255.0).astype(np.uint8))
+            cv2.imwrite(os.path.join(r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac", "tactile_shear_image.png"), (visualize_tactile_shear_image(tactile_normal_force[0].view((self.num_rows, self.num_cols)).cpu().numpy(), tactile_shear_force[0].view((self.num_rows, self.num_cols, 2)).cpu().numpy(), normal_force_threshold=0.003, shear_force_threshold=0.002)*255.0).astype(np.uint8))
+            cv2.imshow("tactile_shear_image", tactile_image)
+            cv2.waitKey(1)
         # 8. 可视化力
         if self.enable_visualization and False:  # Periodically visualize
             # -- MODIFICATION: Calculate contact patch for visualization --

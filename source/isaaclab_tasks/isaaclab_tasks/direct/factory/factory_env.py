@@ -30,30 +30,992 @@ from isaaclab.sensors import TiledCamera, Camera
 import torchvision
 import numpy as np
 import cv2
+from isaaclab.assets import ArticulationCfg, Articulation
+from isaaclab.utils.shear_tactile_viz_utils import visualize_penetration_depth, visualize_tactile_shear_image
+import isaaclab.utils.math as math_utils
+from isaaclab.assets import RigidObject, RigidObjectCfg
 
 import time
 
 import warp as wp
 wp.init()
 
-# NEW: 放到模块级或类里（定义一次即可）
-@wp.kernel
-def _signed_pen_depth_kernel(
-    mesh_id: wp.uint64,
-    pts: wp.array(dtype=wp.vec3),
-    out_depth: wp.array(dtype=float),
-):
-    tid = wp.tid()
-    p = pts[tid]
-    # 最近点 + 绕数符号（inside/outside）
-    q = wp.mesh_query_point_sign_winding_number(mesh_id, p, 1.0e10)
-    # 最近点位置
-    cp = wp.mesh_eval_position(mesh_id, q.face, q.u, q.v)
-    # 无符号距离
-    d = wp.length(p - cp)
-    # 只要“惩罚深度”：inside>0 ⇒ 深度=d；outside≤0 ⇒ 0
-    out_depth[tid] = wp.where(q.sign < 0.0, d, 0.0)
+# # NEW: 放到模块级或类里（定义一次即可）
+# @wp.kernel
+# def _signed_pen_depth_kernel(
+#     mesh_id: wp.uint64,
+#     pts: wp.array(dtype=wp.vec3),
+#     out_depth: wp.array(dtype=float),
+# ):
+#     tid = wp.tid()
+#     p = pts[tid]
+#     # 最近点 + 绕数符号（inside/outside）
+#     q = wp.mesh_query_point_sign_winding_number(mesh_id, p, 1.0e10)
+#     # 最近点位置
+#     cp = wp.mesh_eval_position(mesh_id, q.face, q.u, q.v)
+#     # 无符号距离
+#     d = wp.length(p - cp)
+#     # 只要“惩罚深度”：inside>0 ⇒ 深度=d；outside≤0 ⇒ 0
+#     out_depth[tid] = wp.where(q.sign < 0.0, d, 0.0)
 
+# @wp.kernel
+# def _warp_depth_normal_kernel(
+#     mesh_id: wp.uint64,
+#     pts: wp.array(dtype=wp.vec3f),
+#     out_depth: wp.array(dtype=wp.float32),
+#     out_mask: wp.array(dtype=wp.int32),
+#     out_normal: wp.array(dtype=wp.vec3f),
+# ):
+#     i = wp.tid()
+#     p = pts[i]
+
+#     q = wp.mesh_query_point_sign_winding_number(
+#         mesh_id,
+#         p,
+#         wp.float32(1.0e10),
+#     )
+
+#     cp = wp.mesh_eval_position(mesh_id, q.face, q.u, q.v)
+#     diff = p - cp
+#     d = wp.length(diff)
+
+#     inside = q.sign < wp.float32(0.0)
+#     out_mask[i]  = wp.where(inside, wp.int32(1), wp.int32(0))
+#     out_depth[i] = wp.where(inside, d, wp.float32(0.0))
+
+#     eps   = wp.float32(1e-12)
+#     len2  = wp.dot(diff, diff)     
+#     denom = wp.sqrt(len2 + eps)    
+#     n_dir = diff / denom           
+
+#     n_out = wp.where(inside, -n_dir, n_dir)
+#     out_normal[i] = n_out
+
+# def visualize_tactile_shear_image(tactile_normal_force, tactile_shear_force,
+#                                   normal_force_threshold=0.00008, shear_force_threshold=0.0005,
+#                                   resolution=30):
+#     """
+#     Visualize the tactile shear field.
+
+#     Args:
+#         tactile_normal_force (np.ndarray): Array of tactile normal forces.
+#         tactile_shear_force (np.ndarray): Array of tactile shear forces.
+#         normal_force_threshold (float): Threshold for normal force visualization.
+#         shear_force_threshold (float): Threshold for shear force visualization.
+#         resolution (int): Resolution for the visualization.
+
+#     Returns:
+#         np.ndarray: Image visualizing the tactile shear forces.
+#     """
+#     nrows = tactile_normal_force.shape[0]
+#     ncols = tactile_normal_force.shape[1]
+
+#     imgs_tactile = np.zeros((nrows * resolution, ncols * resolution, 3), dtype=float)
+
+#     # print('(min, max) tactile normal force: ', np.min(tactile_normal_force), np.max(tactile_normal_force))
+#     try:
+#         for row in range(nrows):
+#             for col in range(ncols):
+#                 loc0_x = row * resolution + resolution // 2
+#                 loc0_y = col * resolution + resolution // 2
+#                 loc1_x = loc0_x + tactile_shear_force[row, col][0] / shear_force_threshold * resolution
+#                 loc1_y = loc0_y + tactile_shear_force[row, col][1] / shear_force_threshold * resolution
+#                 color = (0.,
+#                         max(0., 1. - tactile_normal_force[row][col] / normal_force_threshold),
+#                         min(1., tactile_normal_force[row][col] / normal_force_threshold)
+#                         )
+
+#                 cv2.arrowedLine(imgs_tactile,
+#                                 (int(loc0_y), int(loc0_x)),
+#                                 (int(loc1_y), int(loc1_x)),
+#                                 color, 6, tipLength=0.4)
+#     except Exception as e:
+#         print(f"[VIZ-ERROR] Failed to visualize tactile shear image. Error: {e}")
+#         import pdb; pdb.set_trace()
+#         return None
+#     return imgs_tactile
+
+
+# class TactileSensingSystem:
+#     """
+#     一个管理机器人手指（传感器）和Peg（物体）之间触觉模拟的类。
+#     使用SDF来计算穿透深度并生成触觉数据。
+#     """
+
+#     def __init__(self, env: "FactoryEnv", num_rows_per_finger: int = 20, num_cols_per_finger: int = 20 ):
+#         """
+#         通过引用环境中的机器人和物体来初始化触觉系统。
+
+#         Args:
+#             env (FactoryEnv): 对主环境的引用。
+#             num_rows_per_finger (int): 每个手指上传感器点的行数。
+#             num_cols_per_finger (int): 每个手指上传感器点的列数。
+#         """
+#         print("[INFO] Initializing Tactile Sensing System...")
+#         self.env = env
+#         self.device = env.device
+#         self.num_envs = env.num_envs
+
+#         # 获取对机器人和被抓取物体的引用
+#         self._robot = self.env._robot
+#         self._peg = self.env._held_assetself._peg = self.env._held_asset
+
+#         # 获取传感器（手指）的body索引
+#         self.left_finger_idx = self._robot.body_names.index("elastomer_left")
+#         self.right_finger_idx = self._robot.body_names.index("elastomer_right")
+#         current_dir = os.path.dirname(os.path.abspath(__file__))
+#         # 注意：这里的相对路径'..'的数量可能需要根据您实际的文件结构进行调整
+#         self.peg_stl_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "my_assets_new", "peg", "peg.stl")
+#         self.elastomer_stl_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "my_assets_new", "peg", "extruded_elastomer_transformed.stl")
+#         print(f"[INFO] Peg STL path: {self.peg_stl_path}")
+#         print(f"[INFO] Elastomer STL path: {self.elastomer_stl_path}")
+
+#         self.num_rows_per_finger = num_rows_per_finger
+#         self.num_cols_per_finger = num_cols_per_finger
+#         # 在每个手指表面生成触觉点
+#         self._generate_tactile_points(num_rows=num_rows_per_finger, num_cols=num_cols_per_finger)
+
+#         # 为Peg物体初始化SDF
+#         self._initialize_peg_sdf()
+#         print("[INFO] Tactile Sensing System Initialized.")
+        
+#         # --- 新增：可视化相关的控制参数 ---
+#         self.enable_tactile_visualization = False  # 总开关
+#         self.enable_debug_visualization = False
+#         self.visualization_counter = 0      # 帧计数器
+#         self.visualization_interval = 10   # 每隔多少帧显示一次
+#         self.colormap = plt.get_cmap("jet") # 用于生成热力图的颜色映射
+#         print("[INFO] Tactile Sensing System Initialized.")
+
+#         self.tactile_kn = 1.0  # 法向刚度 (N/m), 建议使用一个较大的值
+#         self.tactile_kt = 0.1    # 切向（剪切）刚度 (N*s/m)
+#         self.tactile_mu = 2.0    # 动摩擦系数 (无单位), 新增参数
+#         self.tactile_kd = 10.0
+        
+        
+#         # self.depth_camera = TiledCamera(self.env.cfg.TACTILE_CAMERA_CFG)
+#         # self.env.scene.sensors["tactile_camera"] = self.depth_camera
+#         # self.env.scene.add_camera("tactile_camera", self.env.cfg.TACTILE_CAMERA_CFG)
+        
+
+#     def _load_mesh_from_file(self, file_path: str) -> trimesh.Trimesh | None:
+#         """
+#         一个从本地文件加载trimesh对象的辅助函数。
+#         """
+#         try:
+#             if not os.path.exists(file_path):
+#                 print(f"[VIZ-ERROR] Mesh file not found at: {file_path}")
+#                 return None
+#             mesh = trimesh.load(file_path, force='mesh')
+#             print(f"[VIZ-INFO] Successfully loaded mesh from: {file_path}")
+#             return mesh
+#         except Exception as e:
+#             print(f"[VIZ-ERROR] Failed to load mesh from {file_path}. Error: {e}")
+#             return None
+
+#     def _generate_tactile_points(self, num_rows: int = 10, num_cols: int = 10, margin: float = 0.001):
+#         """
+#         通过在 elastomer 模型上进行光线投射，来生成触觉点。
+#         这种方法可以自适应任何模型表面。
+#         """
+#         print("[INFO] Generating tactile points via ray casting...")
+        
+#         # 1. 从STL文件加载网格
+#         mesh = self._load_mesh_from_file(self.elastomer_stl_path)
+#         if mesh is None:
+#             raise RuntimeError(f"Cannot generate tactile points because mesh failed to load from {self.elastomer_stl_path}")
+        
+#         # 2. 将网格中心移到原点，与SDF和可视化保持一致
+#         # mesh.apply_translation(-mesh.centroid)
+
+#         # 3. 自动确定网格的“薄”轴，作为光线投射的方向
+#         elastomer_dims = mesh.bounding_box.extents
+#         slim_axis = np.argmin(elastomer_dims)
+#         major_axes = [i for i in range(3) if i != slim_axis]
+        
+#         print(f"[INFO] Detected slim axis: {['X', 'Y', 'Z'][slim_axis]}. Projecting points along this axis.")
+
+#         # 4. 在一个平面上创建光线起点的网格，该平面位于模型外部
+#         bounds = mesh.bounds
+#         ray_origin_start = bounds[1] + np.array([0.1, 0.1, 0.1]) # 从边界外开始
+#         ray_dir = np.array([0.0, 0.0, 0.0])
+#         ray_dir[slim_axis] = -1.0 # 朝向模型 (-1)
+
+#         # 在两个主轴上创建网格点
+#         x_coords = np.linspace(bounds[0][major_axes[0]] + margin, bounds[1][major_axes[0]] - margin, num_cols)
+#         y_coords = np.linspace(bounds[0][major_axes[1]] + margin, bounds[1][major_axes[1]] - margin, num_rows)
+        
+#         ray_origins = []
+#         for y in y_coords:
+#             for x in x_coords:
+#                 point = np.zeros(3)
+#                 point[major_axes[0]] = x
+#                 point[major_axes[1]] = y
+#                 point[slim_axis] = ray_origin_start[slim_axis]
+#                 ray_origins.append(point)
+#         ray_origins = np.array(ray_origins)
+#         ray_directions = np.tile(ray_dir, (len(ray_origins), 1))
+
+#         # 5. 执行光线投射
+#         intersector = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
+#         locations, index_ray, _ = intersector.intersects_location(ray_origins, ray_directions)
+
+#         if len(locations) != len(ray_origins):
+#             print(f"[WARN] Ray casting missed some points. Expected {len(ray_origins)}, got {len(locations)}. Try adjusting margin.")
+#         visualize = False
+#         locations = locations[locations[:, 1] < 0]
+#         locations[:, 2] = locations[:, 2]
+
+        
+#         if visualize:
+#             print("[DEBUG] Visualizing generated tactile points... (Close window to continue)")
+#             # 创建一个点云对象来显示命中的点
+#             # remove point if y > 0
+            
+#             point_cloud = trimesh.PointCloud(locations, colors=[255, 0, 0]) # 红色点
+#             # 创建一个场景，包含原始网格和生成的点云
+#             scene = trimesh.Scene([mesh, point_cloud])
+#             # 显示场景，这会暂停执行直到窗口被关闭
+#             scene.show()
+
+#         # 6. 将生成的点转换为Tensor并存储
+#         points = torch.from_numpy(locations).to(device=self.device, dtype=torch.float32)
+        
+#         points = points[points[:, 2].argsort(stable=True)]  # 按 z 排
+#         points = points[points[:, 1].argsort(stable=True)]  # 按 y 排
+#         points = points[points[:, 0].argsort(stable=True)]  # 按 x 排
+#         # 假设左右手指使用相同的局部点云
+#         self.tactile_points_left_local = points.unsqueeze(0).repeat(self.num_envs, 1, 1)
+#         self.tactile_points_right_local = points.unsqueeze(0).repeat(self.num_envs, 1, 1)
+        
+#         self.num_points_per_finger = self.tactile_points_left_local.shape[1]
+
+        
+#         print(f"[INFO] Generated {self.num_points_per_finger} tactile points successfully.")
+
+#     def _initialize_peg_sdf(self):
+#         """
+#         修改为从仿真环境中提取网格来初始化SDF。
+#         """
+#         print("[INFO] Initializing SDF for the Peg by extracting mesh from stage...")
+#         self.peg_sdf = None
+#         try:
+#             # 使用新的、更鲁棒的函数从环境中提取网格
+#             peg_mesh = self._extract_mesh_from_prim("/World/envs/env_0/HeldAsset")
+#             if peg_mesh is None:
+#                 raise RuntimeError("Failed to extract mesh from HeldAsset for SDF.")
+            
+#             self.peg_sdf = SDF(peg_mesh.vertices, peg_mesh.faces)
+#             print("[INFO] Peg SDF initialized from stage.")
+#         except Exception as e:
+#             print(f"[ERROR] Failed to initialize SDF. Error: {e}")
+
+#     def _extract_mesh_from_prim(self, prim_path: str) -> trimesh.Trimesh | None:
+#         """
+#         一个更鲁棒的辅助函数，用于从给定的Prim路径提取Trimesh对象。
+#         它会递归地组合一个Prim下的所有子网格（包括隐式几何体），并使用兼容的API。
+#         """
+#         try:
+#             root_prim = self.env.scene.stage.GetPrimAtPath(prim_path)
+#             if not root_prim.IsValid():
+#                 print(f"[VIZ-WARN] Root prim for mesh extraction not valid: {prim_path}")
+#                 return None
+
+#             xform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+#             combined_mesh = trimesh.Trimesh()
+
+#             stack = [root_prim]
+#             while stack:
+#                 prim = stack.pop()
+#                 stack.extend(prim.GetChildren())
+                
+#                 mesh = None
+#                 # 检查是否为显式网格
+#                 if prim.IsA(UsdGeom.Mesh):
+#                     geom_mesh = UsdGeom.Mesh(prim)
+#                     vertices = np.array(geom_mesh.GetPointsAttr().Get())
+#                     if vertices.size > 0:
+#                         faces = np.array(geom_mesh.GetFaceVertexIndicesAttr().Get()).reshape(-1, 3)
+#                         mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+                
+#                 # 检查是否为隐式几何体
+#                 elif prim.IsA(UsdGeom.Cube):
+#                     geom = UsdGeom.Cube(prim)
+#                     size = geom.GetSizeAttr().Get()
+#                     mesh = trimesh.primitives.Box(extents=[size, size, size])
+#                 elif prim.IsA(UsdGeom.Sphere):
+#                     geom = UsdGeom.Sphere(prim)
+#                     radius = geom.GetRadiusAttr().Get()
+#                     mesh = trimesh.primitives.Sphere(radius=radius)
+#                 elif prim.IsA(UsdGeom.Cylinder):
+#                     geom = UsdGeom.Cylinder(prim)
+#                     radius = geom.GetRadiusAttr().Get()
+#                     height = geom.GetHeightAttr().Get()
+#                     mesh = trimesh.primitives.Cylinder(radius=radius, height=height)
+#                 elif prim.IsA(UsdGeom.Capsule):
+#                     geom = UsdGeom.Capsule(prim)
+#                     radius = geom.GetRadiusAttr().Get()
+#                     height = geom.GetHeightAttr().Get()
+#                     mesh = trimesh.primitives.Capsule(radius=radius, height=height)
+
+#                 # 如果找到了任何类型的几何体，将其变换并添加到主网格中
+#                 if mesh is not None:
+#                     mesh_to_world_transform = xform_cache.GetLocalToWorldTransform(prim)
+#                     root_to_world_transform = xform_cache.GetLocalToWorldTransform(root_prim)
+#                     world_to_root_transform = root_to_world_transform.GetInverse()
+#                     relative_transform = mesh_to_world_transform * world_to_root_transform
+                    
+#                     # 将Gf.Matrix4d转换为numpy数组以供trimesh使用
+#                     transform_np = np.array(relative_transform).T
+#                     mesh.apply_transform(transform_np)
+                    
+#                     combined_mesh += mesh
+
+#             if len(combined_mesh.vertices) == 0:
+#                 print(f"[VIZ-WARN] No mesh geometry found under: {prim_path}")
+#                 return None
+            
+#             print(f"[VIZ-INFO] Extracted mesh from {prim_path} with {len(combined_mesh.vertices)} vertices.")
+#             return combined_mesh
+
+#         except Exception as e:
+#             print(f"[VIZ-ERROR] Failed to extract mesh from {prim_path}. Error: {e}")
+#             return None
+    
+#     def _debug_visualize_transforms(self, local_l, local_r, world_l, world_r, peg_local, transforms, all_tactile_points_w):
+#         """
+#         一个专门用于调试坐标变换的3D可视化函数。
+#         """
+#         print("[DEBUG] Visualizing coordinate transforms... (Close window to continue)")
+        
+#         scene = trimesh.Scene()
+        
+#         # --- 1. 从环境中提取并添加上下文几何体 ---
+#         peg_mesh = self._extract_mesh_from_prim("/World/envs/env_0/HeldAsset")
+#         if peg_mesh:
+#             peg_mesh.visual.face_colors = [255, 255, 0, 150] # 黄色, 半透明
+#             scene.add_geometry(peg_mesh, transform=transforms["peg_w"])
+#         else:
+#             print("[VIZ-WARN] Could not visualize Peg mesh.")
+
+#         finger_mesh_template = self._load_mesh_from_file(self.elastomer_stl_path)
+#         if finger_mesh_template:
+#             finger_mesh_template.visual.face_colors = [128, 128, 128, 150] # 灰色, 半透明
+
+#             # 右手指 (直接使用)
+#             right_finger_mesh = finger_mesh_template.copy()
+#             scene.add_geometry(right_finger_mesh, transform=transforms["finger_r_w"])
+
+#             # 左手指 (进行Y轴镜像)
+#             left_finger_mesh = finger_mesh_template.copy()
+#             # mirror_transform = np.diag([1, -1, 1, 1])
+#             # left_finger_mesh.apply_transform(mirror_transform)
+#             scene.add_geometry(left_finger_mesh, transform=transforms["finger_l_w"])
+#         else:
+#             print("[VIZ-WARN] Could not visualize Finger meshes. Check file path in __init__.")
+
+#         # --- 2. 可视化点云 ---
+#         pc_local_l = trimesh.PointCloud(local_l, colors=[0, 255, 0])
+#         # pc_local_l.apply_transform(transforms["finger_l_w"])
+#         scene.add_geometry(pc_local_l)
+        
+#         pc_local_r = trimesh.PointCloud(local_r, colors=[0, 255, 0])
+#         # pc_local_r.apply_transform(transforms["finger_r_w"])
+#         scene.add_geometry(pc_local_r)
+
+
+
+#          # --- 2. 可视化点云 ---
+#         pc_local_l = trimesh.PointCloud(world_l, colors=[0, 255, 255])
+#         # pc_local_l.apply_transform(transforms["finger_l_w"])
+#         scene.add_geometry(pc_local_l)
+        
+#         pc_local_r = trimesh.PointCloud(world_r, colors=[0, 255, 255])
+#         # pc_local_r.apply_transform(transforms["finger_r_w"])
+#         scene.add_geometry(pc_local_r)
+
+#         # scene.add_geometry(trimesh.PointCloud(np.vstack([world_l, world_r]), colors=[0, 0, 255]))
+
+#         pc_peg_local = trimesh.PointCloud(peg_local, colors=[255, 0, 0])
+#         # pc_peg_local.apply_transform(transforms["peg_w"])
+#         scene.add_geometry(pc_peg_local)
+        
+#         # --- 3. 添加世界坐标系轴，方便定位 ---
+#         world_axes = trimesh.creation.axis(origin_size=0.005, axis_radius=0.001, axis_length=0.05)
+#         scene.add_geometry(world_axes)
+
+#         scene.show()
+
+   
+#     def _visualize_force_model_vectors(
+#         self,
+#         contact_points_w,
+#         contact_normals_w,
+#         vt_w,
+#         f_n_world,
+#         f_t_world,
+#         f_world,
+#         env_idx=0,
+#     ):
+#         """
+#         [终极调试版] 使用 trimesh 对 TacSL 模型计算过程中的所有关键向量进行分步可视化。
+
+#         Args:
+#             contact_points_w (np.ndarray): 接触点位置
+#             contact_normals_w (np.ndarray): 表面法线 (n)
+#             vt_w (np.ndarray): 相对切向速度 (v_t)
+#             f_n_world (np.ndarray): 3D法向力 (f_n)
+#             f_t_world (np.ndarray): 3D摩擦力 (f_t)
+#             f_world (np.ndarray): 总接触力 (f)
+#             env_idx (int): 要可视化的环境索引
+#         """
+#         print("[DEBUG] Visualizing all force model vectors... (Close window to continue)")
+
+#         if contact_points_w.shape[0] == 0:
+#             print("[DEBUG] No contact points to visualize.")
+#             return
+
+#         # --- 1. 创建场景并添加上下文模型 ---
+#         scene = trimesh.Scene()
+        
+#         # 加载并放置 Peg 和 Fingers (与之前版本相同)
+#         peg_pos_w = self._peg.data.root_pos_w[env_idx].cpu().numpy()
+#         peg_quat_w = self._peg.data.root_quat_w[env_idx].cpu().numpy()
+#         peg_transform = trimesh.transformations.quaternion_matrix(peg_quat_w)
+#         peg_transform[:3, 3] = peg_pos_w
+#         peg_mesh = self._extract_mesh_from_prim(f"/World/envs/env_{env_idx}/HeldAsset")
+#         if peg_mesh:
+#             peg_mesh.visual.face_colors = [255, 255, 0, 80] # 更透明的黄色
+#             scene.add_geometry(peg_mesh, transform=peg_transform)
+
+#         finger_mesh_template = self._load_mesh_from_file(self.elastomer_stl_path)
+#         if finger_mesh_template:
+#             finger_mesh_template.visual.face_colors = [128, 128, 128, 80] # 更透明的灰色
+#             left_finger_pos = self._robot.data.body_pos_w[env_idx, self.left_finger_idx].cpu().numpy()
+#             left_finger_quat = self._robot.data.body_quat_w[env_idx, self.left_finger_idx].cpu().numpy()
+#             left_finger_transform = trimesh.transformations.quaternion_matrix(left_finger_quat)
+#             left_finger_transform[:3, 3] = left_finger_pos
+#             scene.add_geometry(finger_mesh_template.copy(), transform=left_finger_transform)
+#             # ... (可以同样添加右手指)
+
+#         # --- 2. 可视化核心向量 ---
+#         # 接触点 (蓝色)
+#         scene.add_geometry(trimesh.PointCloud(contact_points_w, colors=[0, 0, 255]))
+
+#         # 为不同类型的向量设置不同的可视化缩放比例
+#         vel_scale = 0.00000005  # 速度向量通常较大，缩放小一点
+#         force_scale = 0.01 # 力的向量可以放大一点看
+        
+# # --- 核心修复：带数据验证 + 零向量过滤 的辅助函数 ---
+#         # --- 核心修复：手动创建箭头的辅助函数 ---
+#         def _create_arrow_geometries(start_points, vectors, scale, color, name=""):
+#             # 1. 数据验证 (NaN, inf, zero-length)
+#             magnitudes = np.linalg.norm(vectors, axis=1)
+#             valid_mask = ~np.isnan(vectors).any(axis=1) & \
+#                          ~np.isinf(vectors).any(axis=1) & \
+#                          (magnitudes > 1e-9)
+
+#             if not np.any(valid_mask):
+#                 print(f"[VIZ-INFO] No valid vectors to draw for '{name}'.")
+#                 return None
+
+#             p = start_points[valid_mask]
+#             v = vectors[valid_mask]
+#             m = magnitudes[valid_mask][:, np.newaxis]
+
+#             # 2. 缩放
+#             max_mag = m.max()
+#             scaled_vectors = v * scale / (max_mag if max_mag > 1e-9 else 1.0)
+            
+#             # 3. 为每个向量创建一个圆柱体
+#             arrow_meshes = []
+#             for i in range(len(p)):
+#                 start_point = p[i]
+#                 vec = scaled_vectors[i]
+                
+#                 # 创建圆柱体
+#                 cyl_height = np.linalg.norm(vec)
+#                 cylinder = trimesh.primitives.Cylinder(radius=0.0005, height=cyl_height)
+                
+#                 # 将圆柱体的Z轴与向量方向对齐
+#                 transform = trimesh.geometry.align_vectors([0, 0, 1], vec)
+#                 # 将圆柱体移动到向量的中心点
+#                 transform[:3, 3] = start_point + vec / 2.0
+                
+#                 cylinder.apply_transform(transform)
+#                 arrow_meshes.append(cylinder)
+
+#             # 4. 合并所有圆柱体为一个网格并上色
+#             if not arrow_meshes:
+#                 return None
+#             combined_mesh = trimesh.util.concatenate(arrow_meshes)
+#             combined_mesh.visual.face_colors = color
+#             return combined_mesh
+
+#         # -- 分步可视化 --
+#         # 1. 表面法线 (n) - 绿色
+#         geom_normals = _create_arrow_geometries(contact_points_w, contact_normals_w, 0.02, [0, 255, 0, 255], "1_Surface_Normal")
+#         if geom_normals: scene.add_geometry(geom_normals)
+
+#         # 2. 相对切向速度 (v_t) - 黄色
+#         geom_vel = _create_arrow_geometries(contact_points_w, vt_w, vel_scale, [255, 255, 0, 255], "2_Tangential_Velocity")
+#         if geom_vel: scene.add_geometry(geom_vel)
+
+#         # 3. 3D法向力 (f_n) - 青色
+#         geom_fn = _create_arrow_geometries(contact_points_w, f_n_world, force_scale, [0, 255, 255, 255], "3_Normal_Force")
+#         if geom_fn: scene.add_geometry(geom_fn)
+#         # 4. 3D摩擦力 (f_t) - 红色
+#         geom_ft = _create_arrow_geometries(contact_points_w, f_t_world, force_scale, [255, 0, 0, 255], "4_Friction_Force")
+#         if geom_ft: scene.add_geometry(geom_ft)
+
+#         # 5. 总接触力 (f) - 品红色
+#         geom_f = _create_arrow_geometries(contact_points_w, f_world, force_scale, [255, 0, 255, 255], "5_Total_Force")
+#         if geom_f: scene.add_geometry(geom_f)
+
+#         scene.add_geometry(trimesh.creation.axis(origin_size=0.005, axis_radius=0.001, axis_length=0.05))
+
+
+#         print("\n--- [DEBUG] VISUALIZATION GUIDE ---")
+#         print("    - Blue Points: Contact Points")
+#         print("    - Green:       1. Surface Normal (n)")
+#         print("    - Yellow:      2. Tangential Velocity (v_t)")
+#         print("    - Cyan:        3. Normal Force (f_n)")
+#         print("    - Red:         4. Friction Force (f_t)")
+#         print("    - Magenta:     5. Total Force (f)")
+        
+#         scene.show()
+
+
+#     def visualize_gradients_trimesh(
+#         self,
+#         all_tactile_points_peg_local: torch.Tensor,  # (B,N,3) 这里你的形状是 [1,800,3]
+#         contact_mask: torch.Tensor,                  # (B,N)   这里你的形状是 [1,800]
+#         grad: torch.Tensor,                          # (K,3)   K = contact_mask.sum()
+#         frame: str = "peg",                          # "peg" or "world"
+#         peg_quat_w: torch.Tensor | None = None,      # (B,4)   仅当 frame="world" 时需要
+#         peg_pos_w: torch.Tensor | None = None,       # (B,3)
+#         peg_mesh_trimesh: "trimesh.Trimesh|None" = None,  # 可选：把 peg 网格也画出来
+#         show: bool = True,
+#         out_path: str | None = None,                 # 可导出 ".glb" ".ply" 等
+#         subsample: int = 1,                          # 箭头抽样步长（>=1）
+#         arrow_scale: float = 0.002,                   # 箭头长度比例
+#     ):
+#         """
+#         在一张图中画出所有触觉点，并在接触点处画出梯度方向箭头。
+#         - grad 是对 contact_mask 提取出的点按默认 PyTorch 索引顺序计算得到的（K,3）。
+#         - 若 frame='world'，将 peg 局部坐标的点和梯度方向旋到世界系后再画。
+#         """
+#         assert all_tactile_points_peg_local.dim() == 3 and all_tactile_points_peg_local.shape[0] == 1, \
+#             "This helper currently expects B==1."
+#         b = 0
+#         N = all_tactile_points_peg_local.shape[1]
+
+#         # 取出 peg 局部的全部点
+#         pts_local = all_tactile_points_peg_local[b].detach().cpu().numpy()  # (N,3)
+
+#         # contact 索引与对应的梯度（假设 grad 的顺序与 (tensor[mask]) 一致）
+#         mask_np = contact_mask[b].detach().cpu().numpy().astype(bool)       # (N,)
+#         idx_contact = np.flatnonzero(mask_np)                               # (K,)
+#         grad_np = grad.detach().cpu().numpy()                               # (K,3)
+#         assert grad_np.shape[0] == idx_contact.shape[0], \
+#             f"grad count ({grad_np.shape[0]}) must match contact count ({idx_contact.shape[0]})."
+
+#         # 坐标系变换（如需要世界系显示）
+#         # 默认使用 peg 局部坐标直接展示
+#         pts_draw = pts_local.copy()
+#         grad_draw = grad_np.copy()
+
+#         if frame.lower() == "world":
+#             assert peg_quat_w is not None and peg_pos_w is not None, "world frame requires peg_quat_w and peg_pos_w"
+#             quat = peg_quat_w[b].detach().cpu().numpy()  # 注意四元数顺序要与工程一致
+#             pos  = peg_pos_w[b].detach().cpu().numpy()
+
+#             # 构造 4x4 变换矩阵
+#             T = trimesh.transformations.quaternion_matrix(quat)
+#             T[:3, 3] = pos
+#             R = T[:3, :3]  # 旋转子矩阵
+
+#             # 点：R*pt + t；方向：仅乘 R
+#             pts_draw = (pts_draw @ R.T) + pos
+#             grad_draw = grad_draw @ R.T
+
+#         # 构建场景
+#         scene = trimesh.Scene()
+
+#         # 1) 可选：把 peg 网格画出来
+#         if peg_mesh_trimesh is None and hasattr(self, "peg_trimesh"):
+#             peg_mesh_trimesh = self.peg_trimesh
+#         if peg_mesh_trimesh is not None:
+#             if frame.lower() == "world":
+#                 scene.add_geometry(peg_mesh_trimesh.copy(), transform=T)
+#             else:
+#                 scene.add_geometry(peg_mesh_trimesh.copy())
+
+#         # 2) 画所有点（非接触灰色，接触红色）
+#         colors = np.tile(np.array([[200, 200, 200, 255]], dtype=np.uint8), (N, 1))
+#         colors[mask_np, :3] = np.array([255, 64, 64], dtype=np.uint8)
+#         scene.add_geometry(trimesh.points.PointCloud(pts_draw, colors=colors))
+
+#         # 3) 在接触点画梯度箭头（单位化后乘 arrow_scale）
+#         if idx_contact.size > 0:
+#             draw_idx = idx_contact[::max(1, int(subsample))]
+#             # 单位化
+#             g = grad_draw[::max(1, int(subsample))].copy()
+#             g_norm = np.linalg.norm(g, axis=1, keepdims=True)
+#             g_hat = g / np.clip(g_norm, 1e-12, None)
+#             seg = np.stack([pts_draw[draw_idx], pts_draw[draw_idx] + g_hat * arrow_scale], axis=1)  # (K',2,3)
+
+#             path = trimesh.load_path(seg.reshape(-1, 2, 3))
+#             n_ent = len(path.entities)
+#             path.colors = np.tile(np.array([[255, 220, 64, 255]], dtype=np.uint8), (n_ent, 1))  # per-entity color
+#             scene.add_geometry(path)
+
+#         # 坐标轴
+#         scene.add_geometry(trimesh.creation.axis(origin_size=0.01, axis_radius=0.0008, axis_length=0.05))
+
+#         # 导出或显示
+#         if out_path:
+#             scene.export(out_path)
+#             print(f"visualization exported to: {out_path}")
+#         if show:
+#             scene.show()
+#     def calculate_normal_shear_force(self) -> tuple[torch.Tensor, torch.Tensor]:
+#         profile = True
+#         if profile:
+#             print(f"calculate_normal_shear_force time: {time.time()}")
+#         self.visualization_counter += 1
+#         if self.peg_sdf is None:
+#             num_total_points = 2 * self.num_points_per_finger
+#             return torch.zeros(self.num_envs, num_total_points, device=self.device), \
+#                    torch.zeros(self.num_envs, num_total_points, 2, device=self.device)
+
+#         # --- 步骤 1: 获取所有位姿和速度 ---
+#         peg_pos_w, peg_quat_w = self._peg.data.root_pos_w, self._peg.data.root_quat_w
+#         peg_lin_vel_w, peg_ang_vel_w = self._peg.data.root_lin_vel_w, self._peg.data.root_ang_vel_w
+
+#         left_finger_pos_w, left_finger_quat_w = self._robot.data.body_pos_w[:, self.left_finger_idx], self._robot.data.body_quat_w[:, self.left_finger_idx]
+#         left_finger_lin_vel_w, left_finger_ang_vel_w = self._robot.data.body_lin_vel_w[:, self.left_finger_idx] * 0.0, self._robot.data.body_ang_vel_w[:, self.left_finger_idx]
+        
+#         right_finger_pos_w, right_finger_quat_w = self._robot.data.body_pos_w[:, self.right_finger_idx], self._robot.data.body_quat_w[:, self.right_finger_idx]
+#         right_finger_lin_vel_w, right_finger_ang_vel_w = self._robot.data.body_lin_vel_w[:, self.right_finger_idx] * 0.0, self._robot.data.body_ang_vel_w[:, self.right_finger_idx]
+#         if profile:
+#             print(f"get finger pose and velocity time: {time.time()}")
+#         # --- 步骤 2: 计算触觉点的位置和速度 ---
+#         tactile_points_left_w = tf_apply(left_finger_quat_w, left_finger_pos_w, self.tactile_points_left_local)
+#         #visualize tactile_points_left_w by trimesh it is torch.Size([1, 2500, 3])
+        
+
+#         tactile_points_right_w = tf_apply(right_finger_quat_w, right_finger_pos_w, self.tactile_points_right_local)
+#         all_tactile_points_w = torch.cat([tactile_points_left_w, tactile_points_right_w], dim=1)
+#         # all_tactile_points_w = tactile_points_left_w
+        
+#         #visualize tactile_points_right_w by trimesh it is torch.Size([1, 2500, 3])
+#         # scene = trimesh.Scene()
+#         # scene.add_geometry(trimesh.PointCloud(tactile_points_right_w[0].cpu().numpy(), colors=[0, 0, 255]))
+#         # add peg pose peg_quat_w, peg_pos_w 
+        
+#         peg_transform = trimesh.transformations.quaternion_matrix(peg_quat_w[0].cpu().numpy())
+#         peg_transform[:3, 3] = peg_pos_w[0].cpu().numpy()
+#         # scene.add_geometry(trimesh.creation.axis(origin_size=0.005, axis_radius=0.001, axis_length=0.05), transform=peg_transform)
+#         # scene.show()
+#         r_left = tactile_points_left_w - left_finger_pos_w.unsqueeze(1)
+#         tactile_vel_left_w = left_finger_lin_vel_w.unsqueeze(1) + torch.cross(left_finger_ang_vel_w.unsqueeze(1), r_left, dim=-1)
+#         r_right = tactile_points_right_w - right_finger_pos_w.unsqueeze(1)
+#         tactile_vel_right_w = right_finger_lin_vel_w.unsqueeze(1) + torch.cross(right_finger_ang_vel_w.unsqueeze(1), r_right, dim=-1)
+#         all_tactile_vel_w = torch.cat([tactile_vel_left_w, tactile_vel_right_w], dim=1)
+
+#         peg_pose_inv_quat, peg_pose_inv_pos = tf_inverse(peg_quat_w, peg_pos_w)
+#         all_tactile_points_peg_local = tf_apply(peg_pose_inv_quat, peg_pose_inv_pos, all_tactile_points_w)
+
+#         batch_size, num_points, _ = all_tactile_points_peg_local.shape
+#         points_np = all_tactile_points_peg_local.view(-1, 3).cpu().numpy()
+#         if(profile):
+#             print("step 222", time.time())
+ 
+#         distances_np = self.peg_sdf(points_np)
+#         if(profile):
+#             print("calcuate SDF, ", time.time())
+#         penetration_depth = torch.from_numpy(-np.minimum(-distances_np, 0)).to(self.device).view(batch_size, num_points)
+        
+#         normal_forces = self.tactile_kn * penetration_depth
+#         left_normal = normal_forces[:, :self.num_points_per_finger]
+#         right_normal = normal_forces[:,self.num_points_per_finger:]
+
+#         torchvision.utils.save_image(left_normal.reshape(self.num_rows_per_finger, self.num_cols_per_finger).transpose(1,0).flip(dims=[1]) * 500, os.path.join(self.env.log_img_save_path, "left_normal_forces.png") )
+#         torchvision.utils.save_image(right_normal.reshape(self.num_rows_per_finger, self.num_cols_per_finger).transpose(1,0).flip(dims=[1]) * 500, os.path.join(self.env.log_img_save_path, "right_normal_forces.png") )
+#         # visualize normal_forces by trimesh
+#         normal_forces_mag = self.tactile_kn * penetration_depth
+#         # --- 步骤 4: 计算剪切力 ---
+#         shear_forces = torch.zeros(batch_size, num_points, 2, device=self.device)
+        
+#         contact_points_for_viz = torch.tensor([], device=self.device)
+#         normals_for_viz = torch.tensor([], device=self.device)
+#         vt_for_viz = torch.tensor([], device=self.device)
+#         ft_for_viz = torch.tensor([], device=self.device)
+        
+#         contact_mask = penetration_depth > 1e-6
+
+#         # --- 步骤 3: 计算穿透深度和表面法线 ---
+#         peg_pose_inv_quat, peg_pose_inv_pos = quat_inv(peg_quat_w), -quat_apply(quat_inv(peg_quat_w), peg_pos_w)
+#         all_tactile_points_peg_local = quat_apply(peg_pose_inv_quat.unsqueeze(1), all_tactile_points_w) + peg_pose_inv_pos.unsqueeze(1)
+        
+#         batch_size, num_points, _ = all_tactile_points_peg_local.shape
+#         points_np = all_tactile_points_peg_local.view(-1, 3).cpu().numpy()
+#         distances_np = self.peg_sdf(points_np)
+        
+#         # 穿透深度为正值 (d > 0 for penetration)
+#         penetration_depth = torch.from_numpy(-np.minimum(-distances_np, 0)).to(self.device).view(batch_size, num_points).clamp(min=0.0)
+        
+#         # 初始化最终输出张量
+#         final_normal_forces = torch.zeros_like(penetration_depth)
+#         final_shear_forces = torch.zeros(batch_size, num_points, 2, device=self.device)
+#         if(profile):
+#             print("before shear force, ", time.time())
+#         # --- 步骤 4: 对接触点计算3D接触力 ---
+#         contact_mask = penetration_depth > 1e-6
+#         if torch.any(contact_mask):
+#             # (4a) 计算世界坐标系下的表面法线 (n)
+#             contact_points_local = all_tactile_points_peg_local[contact_mask]
+#             eps = 1e-5
+#             grad_x = self.peg_sdf(contact_points_local.cpu().numpy() + np.array([eps, 0, 0])) - self.peg_sdf(contact_points_local.cpu().numpy() - np.array([eps, 0, 0]))
+#             grad_y = self.peg_sdf(contact_points_local.cpu().numpy() + np.array([0, eps, 0])) - self.peg_sdf(contact_points_local.cpu().numpy() - np.array([0, eps, 0]))
+#             grad_z = self.peg_sdf(contact_points_local.cpu().numpy() + np.array([0, 0, eps])) - self.peg_sdf(contact_points_local.cpu().numpy() - np.array([0, 0, eps]))
+#             grad = torch.from_numpy(np.stack([grad_x, grad_y, grad_z], axis=-1)).to(self.device)
+            
+#             # self.visualize_gradients_trimesh(
+#             #     all_tactile_points_peg_local=all_tactile_points_peg_local,
+#             #     contact_mask=contact_mask,
+#             #     grad=grad,
+#             #     frame="peg",
+#             #     peg_mesh_trimesh=getattr(self, "peg_trimesh", None),
+#             #     show=True,
+#             #     out_path=None,
+#             #     subsample=1,
+#             #     arrow_scale=0.02,
+#             # )
+#             # import pdb; pdb.set_trace()
+#             contact_normals_local = -torch.nn.functional.normalize(grad, p=2, dim=-1)
+#             peg_quat_w_expanded = peg_quat_w.unsqueeze(1).expand(batch_size, num_points, 4)[contact_mask]
+#             contact_normals_w = quat_apply(peg_quat_w_expanded, contact_normals_local) # 'n' in world frame
+
+
+#             # (4b) 计算相对速度和其法向/切向分量 (d_dot, v_t)
+#             # 计算物体表面接触点的速度
+#             contact_depth_expanded = penetration_depth[contact_mask].unsqueeze(-1)
+#             closest_points_on_surface_local = contact_points_local - contact_depth_expanded * contact_normals_local
+#             peg_pos_w_expanded = peg_pos_w.unsqueeze(1).expand(batch_size, num_points, 3)[contact_mask]
+#             closest_points_on_surface_w = quat_apply(peg_quat_w_expanded, closest_points_on_surface_local) + peg_pos_w_expanded
+            
+#             peg_ang_vel_w_expanded = peg_ang_vel_w.unsqueeze(1).expand(batch_size, num_points, 3)[contact_mask]
+#             peg_lin_vel_w_expanded = peg_lin_vel_w.unsqueeze(1).expand(batch_size, num_points, 3)[contact_mask]
+#             peg_surface_vel_w = torch.cross(peg_ang_vel_w_expanded, closest_points_on_surface_w - peg_pos_w_expanded, dim=-1) + peg_lin_vel_w_expanded
+            
+#             # 相对速度
+#             contact_vel_w = all_tactile_vel_w[contact_mask]
+#             relative_velocity_w = contact_vel_w - peg_surface_vel_w
+            
+#             # 法向速度 (d_dot)
+#             # 论文中d<=0, 接近时d_dot<0。我们d>=0, 接近时d_dot = dot(v_rel, n) < 0。公式-kd*d_dot，结果一致。
+#             d_dot = torch.sum(relative_velocity_w * contact_normals_w, dim=-1)
+            
+#             # 切向速度 (v_t)
+#             vt_w = relative_velocity_w - d_dot.unsqueeze(-1) * contact_normals_w
+
+#             # (4c) 计算3D法向力向量 (f_n)
+#             fn_mag_stiffness = self.tactile_kn * penetration_depth[contact_mask]
+#             fn_mag_damping = -self.tactile_kd * d_dot # 阻尼项，d_dot为负时产生正向阻力
+#             fn_total_mag = (fn_mag_stiffness + fn_mag_damping).clamp(min=0) # 法向力不能是拉力
+#             f_n_world = fn_total_mag.unsqueeze(-1) * contact_normals_w
+
+#             # (4d) 计算3D摩擦力向量 (f_t)
+#             vt_norm = torch.linalg.norm(vt_w, dim=-1)
+#             ft_static_norm = self.tactile_kt * vt_norm
+#             ft_dynamic_norm = self.tactile_mu * fn_total_mag # 摩擦力上限与总法向力相关
+
+#             ft_mag = torch.minimum(ft_static_norm, ft_dynamic_norm)
+#             ft_mag = ft_static_norm
+#             vt_direction = vt_w / (vt_norm.unsqueeze(-1) + 1e-9) # 避免除以零
+#             f_t_world = -ft_mag.unsqueeze(-1) * vt_direction
+
+#             # (4e) 计算总的3D接触力 (f = f_n + f_t)
+#             f_world = f_n_world + f_t_world
+
+#             # (4f) 将总力 f_world 投影到传感器局部坐标系，得到最终输出 (T_n, T_sx, T_sy)
+#             # 我们定义传感器的z轴与表面法线n对齐，x,y轴在切平面上
+#             z_axis_sensor = contact_normals_w
+#             up_vec = torch.tensor([0.0, 0.0, 1.0], device=self.device).expand_as(z_axis_sensor)
+#             parallel_mask = torch.linalg.norm(torch.cross(z_axis_sensor, up_vec, dim=-1), dim=-1) < 1e-6
+#             up_vec[parallel_mask] = torch.tensor([1.0, 0.0, 0.0], device=self.device)
+            
+#             x_axis_sensor = torch.nn.functional.normalize(torch.cross(up_vec, z_axis_sensor, dim=-1), p=2, dim=-1)
+#             y_axis_sensor = torch.cross(z_axis_sensor, x_axis_sensor, dim=-1)
+
+#             # 执行投影
+#             projected_normal_force = torch.sum(f_world * z_axis_sensor, dim=-1)
+#             projected_shear_x = torch.sum(f_world * x_axis_sensor, dim=-1)
+#             projected_shear_y = torch.sum(f_world * y_axis_sensor, dim=-1)
+
+#             # 将计算结果填充回主张量
+#             final_normal_forces[contact_mask] = projected_normal_force
+#             final_shear_forces[contact_mask] = torch.stack([projected_shear_x, projected_shear_y], dim=-1)
+#             final_shear_forces[contact_mask][:,0] = final_shear_forces[contact_mask][:,0] *  (torch.ones_like(grad[:,0] < 0) * (grad[:,0] < 0) * -1)
+#             # self._visualize_shear_force_vectors(
+#             #     contact_points_w=contact_points_for_viz,
+#             #     contact_normals_w=normals_for_viz,
+#             #     vt_w=vt_for_viz,
+#             #     ft_world=ft_for_viz,
+#             #     env_idx=0
+#             # )
+#             left_normal_forces = final_normal_forces[0, :self.num_points_per_finger].view(self.num_rows_per_finger, self.num_cols_per_finger)
+#             left_shear_forces = final_shear_forces[0, :self.num_points_per_finger, :].view(self.num_rows_per_finger, self.num_cols_per_finger, 2)
+            
+#             right_normal_forces = final_normal_forces[0, self.num_points_per_finger:].view(self.num_rows_per_finger, self.num_cols_per_finger)
+#             right_shear_forces = final_shear_forces[0, self.num_points_per_finger:, :].view(self.num_rows_per_finger, self.num_cols_per_finger, 2)
+            
+            
+#             if(profile):
+#                 print("before shear force image, ", time.time())
+#             img = visualize_tactile_shear_image(left_normal_forces.cpu().numpy(), left_shear_forces.cpu().numpy(), normal_force_threshold=0.1, shear_force_threshold=0.01, resolution=100)
+#             # rotate img 90 degree
+#             img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+#             # import pdb; pdb.set_trace()
+#             cv2.imwrite(os.path.join(self.env.log_img_save_path, "left_tactile_shear_image.png"), (img * 255.0).astype(np.uint8))
+            
+#             img = visualize_tactile_shear_image(right_normal_forces.cpu().numpy(), right_shear_forces.cpu().numpy(), normal_force_threshold=0.1, shear_force_threshold=0.01, resolution=100)
+#             # rotate img 90 degree
+#             img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+#             # import pdb; pdb.set_trace()
+#             cv2.imwrite(os.path.join(self.env.log_img_save_path, "right_tactile_shear_image.png"), (img * 255.0).astype(np.uint8))
+            
+#             if(profile):
+#                 print("end shear force image, ", time.time())
+#         env_0_contact_mask = contact_mask[0]
+#         # self._visualize_force_model_vectors(
+#         #                 contact_points_w=all_tactile_points_w[0][env_0_contact_mask].cpu().numpy(),
+#         #                 contact_normals_w=contact_normals_w.cpu().numpy(),
+#         #                 vt_w=vt_w.cpu().numpy(),
+#         #                 f_n_world=f_n_world.cpu().numpy(),
+#         #                 f_t_world=f_t_world.cpu().numpy(),
+#         #                 f_world=f_world.cpu().numpy(),
+#         #                 env_idx=0
+#         #             )
+#         # visualize_tactile_shear_image(right_normal_forces, right_shear_forces, normal_force_threshold=0.00008, shear_force_threshold=0.0005, resolution=30)
+#         return normal_forces, shear_forces
+
+#     def update(self) -> torch.Tensor:
+#         self.visualization_counter += 1
+
+#         # if self.peg_sdf is None:
+#         #     return torch.zeros(self.num_envs, 2 * self.num_points_per_finger, device=self.device)
+
+#         # # --- 1. 获取所有位姿 ---
+#         # peg_pos_w, peg_quat_w = self._peg.data.root_pos_w, self._peg.data.root_quat_w
+#         # left_finger_pos_w, left_finger_quat_w = self._robot.data.body_pos_w[:, self.left_finger_idx], self._robot.data.body_quat_w[:, self.left_finger_idx]
+#         # right_finger_pos_w, right_finger_quat_w = self._robot.data.body_pos_w[:, self.right_finger_idx], self._robot.data.body_quat_w[:, self.right_finger_idx]
+        
+#         # # --- 2. 执行坐标变换 ---
+#         # tactile_points_left_w = tf_apply(left_finger_quat_w, left_finger_pos_w, self.tactile_points_left_local)
+#         # tactile_points_right_w = tf_apply(right_finger_quat_w, right_finger_pos_w, self.tactile_points_right_local)
+
+#         # all_tactile_points_w = torch.cat([tactile_points_left_w, tactile_points_right_w], dim=1)
+#         # peg_pose_inv_quat, peg_pose_inv_pos = tf_inverse(peg_quat_w, peg_pos_w)
+#         # all_tactile_points_peg_local = tf_apply(peg_pose_inv_quat, peg_pose_inv_pos, all_tactile_points_w)
+
+#         # # --- 3. 检查是否需要进行调试可视化 ---
+#         # if self.enable_debug_visualization and self.visualization_counter % self.visualization_interval == 0:
+#         #     # -- FIX: Manually construct transformation matrices from pos and quat --
+#         #     # Helper function to create a 4x4 matrix
+#         #     def create_transform_matrix(pos_np, quat_np_wxyz):
+#         #         # trimesh expects quaternion as [w, x, y, z]
+#         #         quat_np_wxyz = np.array([quat_np_wxyz[0], quat_np_wxyz[1], quat_np_wxyz[2], quat_np_wxyz[3]])
+#         #         matrix = trimesh.transformations.quaternion_matrix(quat_np_wxyz)
+#         #         matrix[:3, 3] = pos_np
+#         #         return matrix
+
+#         #     # Prepare data for env 0
+#         #     peg_pos_np = self._peg.data.root_pos_w[0].cpu().numpy()
+#         #     peg_quat_np = self._peg.data.root_quat_w[0].cpu().numpy()
+            
+#         #     finger_l_pos_np = self._robot.data.body_pos_w[0, self.left_finger_idx].cpu().numpy()
+#         #     finger_l_quat_np = self._robot.data.body_quat_w[0, self.left_finger_idx].cpu().numpy()
+
+#         #     finger_r_pos_np = self._robot.data.body_pos_w[0, self.right_finger_idx].cpu().numpy()
+#         #     finger_r_quat_np = self._robot.data.body_quat_w[0, self.right_finger_idx].cpu().numpy()
+
+#         #     # Create the dictionary of matrices
+#         #     transforms = {
+#         #         "peg_w": create_transform_matrix(peg_pos_np, peg_quat_np),
+#         #         "finger_l_w": create_transform_matrix(finger_l_pos_np, finger_l_quat_np),
+#         #         "finger_r_w": create_transform_matrix(finger_r_pos_np, finger_r_quat_np)
+#         #     }
+            
+#         #     self._debug_visualize_transforms(
+#         #         local_l=self.tactile_points_left_local[0].cpu().numpy(),
+#         #         local_r=self.tactile_points_right_local[0].cpu().numpy(),
+#         #         world_l=tactile_points_left_w[0].cpu().numpy(),
+#         #         world_r=tactile_points_right_w[0].cpu().numpy(),
+#         #         peg_local=all_tactile_points_peg_local[0].cpu().numpy(),
+#         #         transforms=transforms,
+#         #         all_tactile_points_w = all_tactile_points_w
+#         #     )
+        
+#         # # --- 4. 计算SDF并生成触觉图像 (这部分逻辑不变) ---
+#         # batch_size, num_points, _ = all_tactile_points_peg_local.shape
+#         # points_np = all_tactile_points_peg_local.view(-1, 3).cpu().numpy()
+#         # distances_np = self.peg_sdf(points_np)
+        
+#         # penetration_depth_np = -np.minimum(-distances_np, 0)
+#         # tactile_image = torch.from_numpy(penetration_depth_np).to(self.device).view(batch_size, num_points)
+
+#         # # import cv2
+#         # # print(tactile_image)
+#         # # depth_image = (tactile_image.reshape(50, 100).cpu().numpy() * 25500).astype(np.uint8)
+#         # # depth_image = cv2.resize(depth_image, (300, 600))
+#         # # cv2.imshow("depth_image", depth_image)
+#         # # cv2.waitKey(1)
+#         # # --- 5. 检查是否需要进行最终的触觉热力图可视化 ---
+#         # if self.enable_tactile_visualization and self.visualization_counter % self.visualization_interval == 0:
+#         #     def create_transform_matrix(pos_np, quat_np_wxyz):
+#         #         # Isaac Lab [w, x, y, z] -> trimesh [w, x, y, z]
+#         #         matrix = trimesh.transformations.quaternion_matrix(quat_np_wxyz)
+#         #         matrix[:3, 3] = pos_np
+#         #         return matrix
+
+#         #     transforms = {
+#         #         "peg_w": create_transform_matrix(peg_pos_w[0].cpu().numpy(), peg_quat_w[0].cpu().numpy()),
+#         #         "finger_l_w": create_transform_matrix(left_finger_pos_w[0].cpu().numpy(), left_finger_quat_w[0].cpu().numpy()),
+#         #         "finger_r_w": create_transform_matrix(right_finger_pos_w[0].cpu().numpy(), right_finger_quat_w[0].cpu().numpy())
+#         #     }
+            
+#         #     self._visualize_tactile_contact(
+#         #         all_tactile_points_w,
+#         #         tactile_image,
+#         #         all_tactile_points_peg_local,
+#         #         transforms
+#         #     )
+
+        
+#         debug = True
+#         if debug:
+#             current_tactile_image = self.env.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3)
+#             torchvision.utils.save_image( (current_tactile_image - current_tactile_image.min()) / (current_tactile_image.max() - current_tactile_image.min()), os.path.join(self.env.log_img_save_path, "tactile_depth_image.png" ) )
+#             torchvision.utils.save_image(self.env.scene.sensors["tactile_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "tactile_rgb_image.png" ) )
+            
+#             torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "gripper_image.png" ) )
+#             torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.env.log_img_save_path, "gripper_depth_image.png" ) )
+
+#             tactile_depth_image = current_tactile_image - self.env.initial_tactile_image
+#             tactile_depth_image = (tactile_depth_image - tactile_depth_image.min()) / (tactile_depth_image.max() - tactile_depth_image.min())
+#             # import pdb; pdb.set_trace()
+#             torchvision.utils.save_image(tactile_depth_image, os.path.join(self.env.log_img_save_path, "tactile_depth_image_diff.png" ) )
+
+#         self.calculate_normal_shear_force()
+
+
+#         return ""
+
+import warp as wp
+wp.init()
 @wp.kernel
 def _warp_depth_normal_kernel(
     mesh_id: wp.uint64,
@@ -68,7 +1030,7 @@ def _warp_depth_normal_kernel(
     q = wp.mesh_query_point_sign_winding_number(
         mesh_id,
         p,
-        wp.float32(1.0e10),
+        wp.float32(1.0e6),
     )
 
     cp = wp.mesh_eval_position(mesh_id, q.face, q.u, q.v)
@@ -78,120 +1040,61 @@ def _warp_depth_normal_kernel(
     inside = q.sign < wp.float32(0.0)
     out_mask[i]  = wp.where(inside, wp.int32(1), wp.int32(0))
     out_depth[i] = wp.where(inside, d, wp.float32(0.0))
-
-    eps   = wp.float32(1e-12)
-    len2  = wp.dot(diff, diff)     
-    denom = wp.sqrt(len2 + eps)    
-    n_dir = diff / denom           
-
-    n_out = wp.where(inside, -n_dir, n_dir)
+    
+    
+    eps = wp.float32(1e-9)
+    # n_out = diff / (wp.length(diff) + eps)
+    n_out = wp.normalize(diff)
+    
     out_normal[i] = n_out
 
-def visualize_tactile_shear_image(tactile_normal_force, tactile_shear_force,
-                                  normal_force_threshold=0.00008, shear_force_threshold=0.0005,
-                                  resolution=30):
+class TactileSystem:
     """
-    Visualize the tactile shear field.
-
-    Args:
-        tactile_normal_force (np.ndarray): Array of tactile normal forces.
-        tactile_shear_force (np.ndarray): Array of tactile shear forces.
-        normal_force_threshold (float): Threshold for normal force visualization.
-        shear_force_threshold (float): Threshold for shear force visualization.
-        resolution (int): Resolution for the visualization.
-
-    Returns:
-        np.ndarray: Image visualizing the tactile shear forces.
-    """
-    nrows = tactile_normal_force.shape[0]
-    ncols = tactile_normal_force.shape[1]
-
-    imgs_tactile = np.zeros((nrows * resolution, ncols * resolution, 3), dtype=float)
-
-    # print('(min, max) tactile normal force: ', np.min(tactile_normal_force), np.max(tactile_normal_force))
-    try:
-        for row in range(nrows):
-            for col in range(ncols):
-                loc0_x = row * resolution + resolution // 2
-                loc0_y = col * resolution + resolution // 2
-                loc1_x = loc0_x + tactile_shear_force[row, col][0] / shear_force_threshold * resolution
-                loc1_y = loc0_y + tactile_shear_force[row, col][1] / shear_force_threshold * resolution
-                color = (0.,
-                        max(0., 1. - tactile_normal_force[row][col] / normal_force_threshold),
-                        min(1., tactile_normal_force[row][col] / normal_force_threshold)
-                        )
-
-                cv2.arrowedLine(imgs_tactile,
-                                (int(loc0_y), int(loc0_x)),
-                                (int(loc1_y), int(loc1_x)),
-                                color, 6, tipLength=0.4)
-    except Exception as e:
-        print(f"[VIZ-ERROR] Failed to visualize tactile shear image. Error: {e}")
-        import pdb; pdb.set_trace()
-        return None
-    return imgs_tactile
-
-
-class TactileSensingSystem:
-    """
-    一个管理机器人手指（传感器）和Peg（物体）之间触觉模拟的类。
-    使用SDF来计算穿透深度并生成触觉数据。
+    一个管理传感器（立方体）和物体（球体）之间触觉模拟的类。
     """
 
     def __init__(self, env: "FactoryEnv", num_rows_per_finger: int = 20, num_cols_per_finger: int = 20 ):
         """
-        通过引用环境中的机器人和物体来初始化触觉系统。
-
-        Args:
-            env (FactoryEnv): 对主环境的引用。
-            num_rows_per_finger (int): 每个手指上传感器点的行数。
-            num_cols_per_finger (int): 每个手指上传感器点的列数。
+        通过创建传感器和物体来初始化触觉系统。
         """
-        print("[INFO] Initializing Tactile Sensing System...")
         self.env = env
         self.device = env.device
-        self.num_envs = env.num_envs
-
-        # 获取对机器人和被抓取物体的引用
-        self._robot = self.env._robot
-        self._peg = self.env._held_asset
-
-        # 获取传感器（手指）的body索引
-        self.left_finger_idx = self._robot.body_names.index("elastomer_left")
-        self.right_finger_idx = self._robot.body_names.index("elastomer_right")
+        self.sim = env.sim
+        self.cfg = env.cfg
+        self.device = env.device
+        self.num_envs = 1
+        # 创建立方体和球体
+        # self._create_objects()
         current_dir = os.path.dirname(os.path.abspath(__file__))
         # 注意：这里的相对路径'..'的数量可能需要根据您实际的文件结构进行调整
         self.peg_stl_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "my_assets_new", "peg", "peg.stl")
         self.elastomer_stl_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "my_assets_new", "peg", "extruded_elastomer_transformed.stl")
         print(f"[INFO] Peg STL path: {self.peg_stl_path}")
         print(f"[INFO] Elastomer STL path: {self.elastomer_stl_path}")
+        # 在立方体顶面生成触觉点
+        self.num_rows = num_rows_per_finger
+        self.num_cols = num_cols_per_finger
+        self.num_tactile_points = self.num_rows * self.num_cols
+        self._generate_tactile_points(num_rows=self.num_rows, num_cols=self.num_cols)
 
-        self.num_rows_per_finger = num_rows_per_finger
-        self.num_cols_per_finger = num_cols_per_finger
-        # 在每个手指表面生成触觉点
-        self._generate_tactile_points(num_rows=num_rows_per_finger, num_cols=num_cols_per_finger)
-
-        # 为Peg物体初始化SDF
-        self._initialize_peg_sdf()
-        print("[INFO] Tactile Sensing System Initialized.")
+        # 为球体初始化SDF
+        self._robot = self.env._robot
+        self._peg = self.env._held_asset
+        self.left_finger_idx = self._robot.body_names.index("elastomer_left")
+        self.right_finger_idx = self._robot.body_names.index("elastomer_right")
+        # -- MODIFICATION: Reduce stiffness to make overlap more visible --
+        # 定义惩罚法的物理参数
+        self.tactile_kn = 1.0  # 法向刚度 (N/m)
+        self.tactile_mu = 2.
+        self.tactile_kt = 0.1
+        # 控制 trimesh 可视化
+        self.enable_visualization = True
         
-        # --- 新增：可视化相关的控制参数 ---
-        self.enable_tactile_visualization = False  # 总开关
-        self.enable_debug_visualization = False
-        self.visualization_counter = 0      # 帧计数器
-        self.visualization_interval = 10   # 每隔多少帧显示一次
-        self.colormap = plt.get_cmap("jet") # 用于生成热力图的颜色映射
-        print("[INFO] Tactile Sensing System Initialized.")
-
-        self.tactile_kn = 1.0  # 法向刚度 (N/m), 建议使用一个较大的值
-        self.tactile_kt = 0.1    # 切向（剪切）刚度 (N*s/m)
-        self.tactile_mu = 2.0    # 动摩擦系数 (无单位), 新增参数
-        self.tactile_kd = 10.0
+        self.depth_calculation_method = "warp" 
+        # self.depth_calculation_method = "warp" 
         
+        self._initialize_sdf()
         
-        # self.depth_camera = TiledCamera(self.env.cfg.TACTILE_CAMERA_CFG)
-        # self.env.scene.sensors["tactile_camera"] = self.depth_camera
-        # self.env.scene.add_camera("tactile_camera", self.env.cfg.TACTILE_CAMERA_CFG)
         
 
     def _load_mesh_from_file(self, file_path: str) -> trimesh.Trimesh | None:
@@ -286,25 +1189,49 @@ class TactileSensingSystem:
         
         self.num_points_per_finger = self.tactile_points_left_local.shape[1]
 
-        
+        rotation = (0, 0, 0) # NOTE [Jie]: assume tactile frame rotation are all the same
+        tactile_points_quat = R.from_euler('xyz', rotation).as_quat(scalar_first = True)
+        tactile_points_quat_tensor = torch.tensor(tactile_points_quat, dtype=torch.float32, device=self.device).unsqueeze(0).unsqueeze(0).repeat(self.num_envs, self.num_tactile_points, 1)
+        self.tactile_quat_local = tactile_points_quat_tensor
         print(f"[INFO] Generated {self.num_points_per_finger} tactile points successfully.")
 
-    def _initialize_peg_sdf(self):
-        """
-        修改为从仿真环境中提取网格来初始化SDF。
-        """
-        print("[INFO] Initializing SDF for the Peg by extracting mesh from stage...")
-        self.peg_sdf = None
-        try:
-            # 使用新的、更鲁棒的函数从环境中提取网格
-            peg_mesh = self._extract_mesh_from_prim("/World/envs/env_0/HeldAsset")
-            if peg_mesh is None:
-                raise RuntimeError("Failed to extract mesh from HeldAsset for SDF.")
-            
-            self.peg_sdf = SDF(peg_mesh.vertices, peg_mesh.faces)
-            print("[INFO] Peg SDF initialized from stage.")
-        except Exception as e:
-            print(f"[ERROR] Failed to initialize SDF. Error: {e}")
+
+    # def _generate_tactile_points(self, num_rows: int, num_cols: int):
+    #     """在立方体传感器的顶面生成一个触觉点网格。"""
+    #     print("[INFO] Generating tactile points...")
+    #     sensor_size = (0.05,0.05,0.02)
+    #     # 我们只在顶面 (Z+) 创建点
+    #     top_face_z = -sensor_size[2] - 0.004
+    #     # top_face_z = 0
+
+    #     x = torch.linspace(
+    #         -sensor_size[0] / 2.0, sensor_size[0] / 2.0, num_cols, device=self.device
+    #     )
+    #     y = torch.linspace(
+    #         -sensor_size[1] / 2.0, sensor_size[1] / 2.0, num_rows, device=self.device
+    #     )
+
+    #     grid_x, grid_y = torch.meshgrid(x, y, indexing="ij")
+
+    #     points = torch.stack(
+    #         [
+    #             grid_x.flatten(),
+    #             grid_y.flatten(),
+    #             torch.full_like(grid_x.flatten(), top_face_z),
+    #         ],
+    #         dim=-1,
+    #     )
+
+    #     # 将点存储在立方体的局部坐标系中
+    #     self.tactile_points_local = points.unsqueeze(0)  # 增加一个环境维度 (num_envs=1)
+    #     self.num_tactile_points = self.tactile_points_local.shape[1]
+    #     print(f"[INFO] Generated {self.num_tactile_points} tactile points.")
+        
+    #     rotation = (0, 0, 0) # NOTE [Jie]: assume tactile frame rotation are all the same
+    #     tactile_points_quat = R.from_euler('xyz', rotation).as_quat(scalar_first = True)
+    #     tactile_points_quat_tensor = torch.tensor(tactile_points_quat, dtype=torch.float32, device=self.device).unsqueeze(0).unsqueeze(0).repeat(self.num_envs, self.num_tactile_points, 1)
+    #     self.tactile_quat_local = tactile_points_quat_tensor
+
 
     def _extract_mesh_from_prim(self, prim_path: str) -> trimesh.Trimesh | None:
         """
@@ -378,639 +1305,223 @@ class TactileSensingSystem:
             print(f"[VIZ-ERROR] Failed to extract mesh from {prim_path}. Error: {e}")
             return None
     
-    def _debug_visualize_transforms(self, local_l, local_r, world_l, world_r, peg_local, transforms, all_tactile_points_w):
-        """
-        一个专门用于调试坐标变换的3D可视化函数。
-        """
-        print("[DEBUG] Visualizing coordinate transforms... (Close window to continue)")
-        
-        scene = trimesh.Scene()
-        
-        # --- 1. 从环境中提取并添加上下文几何体 ---
+
+    def _initialize_sdf(self):
+        """使用trimesh和pysdf为球体创建一个SDF对象。"""
+        print("[INFO] Initializing SDF for the sphere...")
+        # 1. 使用 trimesh 创建一个球体网格
+        self.peg_sdf = None
         peg_mesh = self._extract_mesh_from_prim("/World/envs/env_0/HeldAsset")
-        if peg_mesh:
-            peg_mesh.visual.face_colors = [255, 255, 0, 150] # 黄色, 半透明
-            scene.add_geometry(peg_mesh, transform=transforms["peg_w"])
-        else:
-            print("[VIZ-WARN] Could not visualize Peg mesh.")
 
-        finger_mesh_template = self._load_mesh_from_file(self.elastomer_stl_path)
-        if finger_mesh_template:
-            finger_mesh_template.visual.face_colors = [128, 128, 128, 150] # 灰色, 半透明
-
-            # 右手指 (直接使用)
-            right_finger_mesh = finger_mesh_template.copy()
-            scene.add_geometry(right_finger_mesh, transform=transforms["finger_r_w"])
-
-            # 左手指 (进行Y轴镜像)
-            left_finger_mesh = finger_mesh_template.copy()
-            # mirror_transform = np.diag([1, -1, 1, 1])
-            # left_finger_mesh.apply_transform(mirror_transform)
-            scene.add_geometry(left_finger_mesh, transform=transforms["finger_l_w"])
-        else:
-            print("[VIZ-WARN] Could not visualize Finger meshes. Check file path in __init__.")
-
-        # --- 2. 可视化点云 ---
-        pc_local_l = trimesh.PointCloud(local_l, colors=[0, 255, 0])
-        # pc_local_l.apply_transform(transforms["finger_l_w"])
-        scene.add_geometry(pc_local_l)
+        # 2. 使用 pysdf 从网格顶点和面创建 SDF 对象
+        self.sphere_sdf = SDF(peg_mesh.vertices, peg_mesh.faces)
+        print("[INFO] SDF initialized.")
         
-        pc_local_r = trimesh.PointCloud(local_r, colors=[0, 255, 0])
-        # pc_local_r.apply_transform(transforms["finger_r_w"])
-        scene.add_geometry(pc_local_r)
+        self.sphere_wp_mesh = wp.Mesh(
+            points=wp.array(peg_mesh.vertices, dtype=wp.vec3, device=self.device),
+            indices=wp.array(peg_mesh.faces.reshape(-1), dtype=wp.int32, device=self.device),
+            support_winding_number=True,
+        )
 
 
-
-         # --- 2. 可视化点云 ---
-        pc_local_l = trimesh.PointCloud(world_l, colors=[0, 255, 255])
-        # pc_local_l.apply_transform(transforms["finger_l_w"])
-        scene.add_geometry(pc_local_l)
-        
-        pc_local_r = trimesh.PointCloud(world_r, colors=[0, 255, 255])
-        # pc_local_r.apply_transform(transforms["finger_r_w"])
-        scene.add_geometry(pc_local_r)
-
-        # scene.add_geometry(trimesh.PointCloud(np.vstack([world_l, world_r]), colors=[0, 0, 255]))
-
-        pc_peg_local = trimesh.PointCloud(peg_local, colors=[255, 0, 0])
-        # pc_peg_local.apply_transform(transforms["peg_w"])
-        scene.add_geometry(pc_peg_local)
-        
-        # --- 3. 添加世界坐标系轴，方便定位 ---
-        world_axes = trimesh.creation.axis(origin_size=0.005, axis_radius=0.001, axis_length=0.05)
-        scene.add_geometry(world_axes)
-
-        scene.show()
-
-   
-    def _visualize_force_model_vectors(
-        self,
-        contact_points_w,
-        contact_normals_w,
-        vt_w,
-        f_n_world,
-        f_t_world,
-        f_world,
-        env_idx=0,
-    ):
-        """
-        [终极调试版] 使用 trimesh 对 TacSL 模型计算过程中的所有关键向量进行分步可视化。
-
-        Args:
-            contact_points_w (np.ndarray): 接触点位置
-            contact_normals_w (np.ndarray): 表面法线 (n)
-            vt_w (np.ndarray): 相对切向速度 (v_t)
-            f_n_world (np.ndarray): 3D法向力 (f_n)
-            f_t_world (np.ndarray): 3D摩擦力 (f_t)
-            f_world (np.ndarray): 总接触力 (f)
-            env_idx (int): 要可视化的环境索引
-        """
-        print("[DEBUG] Visualizing all force model vectors... (Close window to continue)")
-
-        if contact_points_w.shape[0] == 0:
-            print("[DEBUG] No contact points to visualize.")
-            return
-
-        # --- 1. 创建场景并添加上下文模型 ---
-        scene = trimesh.Scene()
-        
-        # 加载并放置 Peg 和 Fingers (与之前版本相同)
-        peg_pos_w = self._peg.data.root_pos_w[env_idx].cpu().numpy()
-        peg_quat_w = self._peg.data.root_quat_w[env_idx].cpu().numpy()
-        peg_transform = trimesh.transformations.quaternion_matrix(peg_quat_w)
-        peg_transform[:3, 3] = peg_pos_w
-        peg_mesh = self._extract_mesh_from_prim(f"/World/envs/env_{env_idx}/HeldAsset")
-        if peg_mesh:
-            peg_mesh.visual.face_colors = [255, 255, 0, 80] # 更透明的黄色
-            scene.add_geometry(peg_mesh, transform=peg_transform)
-
-        finger_mesh_template = self._load_mesh_from_file(self.elastomer_stl_path)
-        if finger_mesh_template:
-            finger_mesh_template.visual.face_colors = [128, 128, 128, 80] # 更透明的灰色
-            left_finger_pos = self._robot.data.body_pos_w[env_idx, self.left_finger_idx].cpu().numpy()
-            left_finger_quat = self._robot.data.body_quat_w[env_idx, self.left_finger_idx].cpu().numpy()
-            left_finger_transform = trimesh.transformations.quaternion_matrix(left_finger_quat)
-            left_finger_transform[:3, 3] = left_finger_pos
-            scene.add_geometry(finger_mesh_template.copy(), transform=left_finger_transform)
-            # ... (可以同样添加右手指)
-
-        # --- 2. 可视化核心向量 ---
-        # 接触点 (蓝色)
-        scene.add_geometry(trimesh.PointCloud(contact_points_w, colors=[0, 0, 255]))
-
-        # 为不同类型的向量设置不同的可视化缩放比例
-        vel_scale = 0.00000005  # 速度向量通常较大，缩放小一点
-        force_scale = 0.01 # 力的向量可以放大一点看
-        
-# --- 核心修复：带数据验证 + 零向量过滤 的辅助函数 ---
-        # --- 核心修复：手动创建箭头的辅助函数 ---
-        def _create_arrow_geometries(start_points, vectors, scale, color, name=""):
-            # 1. 数据验证 (NaN, inf, zero-length)
-            magnitudes = np.linalg.norm(vectors, axis=1)
-            valid_mask = ~np.isnan(vectors).any(axis=1) & \
-                         ~np.isinf(vectors).any(axis=1) & \
-                         (magnitudes > 1e-9)
-
-            if not np.any(valid_mask):
-                print(f"[VIZ-INFO] No valid vectors to draw for '{name}'.")
-                return None
-
-            p = start_points[valid_mask]
-            v = vectors[valid_mask]
-            m = magnitudes[valid_mask][:, np.newaxis]
-
-            # 2. 缩放
-            max_mag = m.max()
-            scaled_vectors = v * scale / (max_mag if max_mag > 1e-9 else 1.0)
-            
-            # 3. 为每个向量创建一个圆柱体
-            arrow_meshes = []
-            for i in range(len(p)):
-                start_point = p[i]
-                vec = scaled_vectors[i]
-                
-                # 创建圆柱体
-                cyl_height = np.linalg.norm(vec)
-                cylinder = trimesh.primitives.Cylinder(radius=0.0005, height=cyl_height)
-                
-                # 将圆柱体的Z轴与向量方向对齐
-                transform = trimesh.geometry.align_vectors([0, 0, 1], vec)
-                # 将圆柱体移动到向量的中心点
-                transform[:3, 3] = start_point + vec / 2.0
-                
-                cylinder.apply_transform(transform)
-                arrow_meshes.append(cylinder)
-
-            # 4. 合并所有圆柱体为一个网格并上色
-            if not arrow_meshes:
-                return None
-            combined_mesh = trimesh.util.concatenate(arrow_meshes)
-            combined_mesh.visual.face_colors = color
-            return combined_mesh
-
-        # -- 分步可视化 --
-        # 1. 表面法线 (n) - 绿色
-        geom_normals = _create_arrow_geometries(contact_points_w, contact_normals_w, 0.02, [0, 255, 0, 255], "1_Surface_Normal")
-        if geom_normals: scene.add_geometry(geom_normals)
-
-        # 2. 相对切向速度 (v_t) - 黄色
-        geom_vel = _create_arrow_geometries(contact_points_w, vt_w, vel_scale, [255, 255, 0, 255], "2_Tangential_Velocity")
-        if geom_vel: scene.add_geometry(geom_vel)
-
-        # 3. 3D法向力 (f_n) - 青色
-        geom_fn = _create_arrow_geometries(contact_points_w, f_n_world, force_scale, [0, 255, 255, 255], "3_Normal_Force")
-        if geom_fn: scene.add_geometry(geom_fn)
-        # 4. 3D摩擦力 (f_t) - 红色
-        geom_ft = _create_arrow_geometries(contact_points_w, f_t_world, force_scale, [255, 0, 0, 255], "4_Friction_Force")
-        if geom_ft: scene.add_geometry(geom_ft)
-
-        # 5. 总接触力 (f) - 品红色
-        geom_f = _create_arrow_geometries(contact_points_w, f_world, force_scale, [255, 0, 255, 255], "5_Total_Force")
-        if geom_f: scene.add_geometry(geom_f)
-
-        scene.add_geometry(trimesh.creation.axis(origin_size=0.005, axis_radius=0.001, axis_length=0.05))
-
-
-        print("\n--- [DEBUG] VISUALIZATION GUIDE ---")
-        print("    - Blue Points: Contact Points")
-        print("    - Green:       1. Surface Normal (n)")
-        print("    - Yellow:      2. Tangential Velocity (v_t)")
-        print("    - Cyan:        3. Normal Force (f_n)")
-        print("    - Red:         4. Friction Force (f_t)")
-        print("    - Magenta:     5. Total Force (f)")
-        
-        scene.show()
-
-
-    def visualize_gradients_trimesh(
-        self,
-        all_tactile_points_peg_local: torch.Tensor,  # (B,N,3) 这里你的形状是 [1,800,3]
-        contact_mask: torch.Tensor,                  # (B,N)   这里你的形状是 [1,800]
-        grad: torch.Tensor,                          # (K,3)   K = contact_mask.sum()
-        frame: str = "peg",                          # "peg" or "world"
-        peg_quat_w: torch.Tensor | None = None,      # (B,4)   仅当 frame="world" 时需要
-        peg_pos_w: torch.Tensor | None = None,       # (B,3)
-        peg_mesh_trimesh: "trimesh.Trimesh|None" = None,  # 可选：把 peg 网格也画出来
-        show: bool = True,
-        out_path: str | None = None,                 # 可导出 ".glb" ".ply" 等
-        subsample: int = 1,                          # 箭头抽样步长（>=1）
-        arrow_scale: float = 0.002,                   # 箭头长度比例
-    ):
-        """
-        在一张图中画出所有触觉点，并在接触点处画出梯度方向箭头。
-        - grad 是对 contact_mask 提取出的点按默认 PyTorch 索引顺序计算得到的（K,3）。
-        - 若 frame='world'，将 peg 局部坐标的点和梯度方向旋到世界系后再画。
-        """
-        assert all_tactile_points_peg_local.dim() == 3 and all_tactile_points_peg_local.shape[0] == 1, \
-            "This helper currently expects B==1."
-        b = 0
-        N = all_tactile_points_peg_local.shape[1]
-
-        # 取出 peg 局部的全部点
-        pts_local = all_tactile_points_peg_local[b].detach().cpu().numpy()  # (N,3)
-
-        # contact 索引与对应的梯度（假设 grad 的顺序与 (tensor[mask]) 一致）
-        mask_np = contact_mask[b].detach().cpu().numpy().astype(bool)       # (N,)
-        idx_contact = np.flatnonzero(mask_np)                               # (K,)
-        grad_np = grad.detach().cpu().numpy()                               # (K,3)
-        assert grad_np.shape[0] == idx_contact.shape[0], \
-            f"grad count ({grad_np.shape[0]}) must match contact count ({idx_contact.shape[0]})."
-
-        # 坐标系变换（如需要世界系显示）
-        # 默认使用 peg 局部坐标直接展示
-        pts_draw = pts_local.copy()
-        grad_draw = grad_np.copy()
-
-        if frame.lower() == "world":
-            assert peg_quat_w is not None and peg_pos_w is not None, "world frame requires peg_quat_w and peg_pos_w"
-            quat = peg_quat_w[b].detach().cpu().numpy()  # 注意四元数顺序要与工程一致
-            pos  = peg_pos_w[b].detach().cpu().numpy()
-
-            # 构造 4x4 变换矩阵
-            T = trimesh.transformations.quaternion_matrix(quat)
-            T[:3, 3] = pos
-            R = T[:3, :3]  # 旋转子矩阵
-
-            # 点：R*pt + t；方向：仅乘 R
-            pts_draw = (pts_draw @ R.T) + pos
-            grad_draw = grad_draw @ R.T
-
-        # 构建场景
-        scene = trimesh.Scene()
-
-        # 1) 可选：把 peg 网格画出来
-        if peg_mesh_trimesh is None and hasattr(self, "peg_trimesh"):
-            peg_mesh_trimesh = self.peg_trimesh
-        if peg_mesh_trimesh is not None:
-            if frame.lower() == "world":
-                scene.add_geometry(peg_mesh_trimesh.copy(), transform=T)
-            else:
-                scene.add_geometry(peg_mesh_trimesh.copy())
-
-        # 2) 画所有点（非接触灰色，接触红色）
-        colors = np.tile(np.array([[200, 200, 200, 255]], dtype=np.uint8), (N, 1))
-        colors[mask_np, :3] = np.array([255, 64, 64], dtype=np.uint8)
-        scene.add_geometry(trimesh.points.PointCloud(pts_draw, colors=colors))
-
-        # 3) 在接触点画梯度箭头（单位化后乘 arrow_scale）
-        if idx_contact.size > 0:
-            draw_idx = idx_contact[::max(1, int(subsample))]
-            # 单位化
-            g = grad_draw[::max(1, int(subsample))].copy()
-            g_norm = np.linalg.norm(g, axis=1, keepdims=True)
-            g_hat = g / np.clip(g_norm, 1e-12, None)
-            seg = np.stack([pts_draw[draw_idx], pts_draw[draw_idx] + g_hat * arrow_scale], axis=1)  # (K',2,3)
-
-            path = trimesh.load_path(seg.reshape(-1, 2, 3))
-            n_ent = len(path.entities)
-            path.colors = np.tile(np.array([[255, 220, 64, 255]], dtype=np.uint8), (n_ent, 1))  # per-entity color
-            scene.add_geometry(path)
-
-        # 坐标轴
-        scene.add_geometry(trimesh.creation.axis(origin_size=0.01, axis_radius=0.0008, axis_length=0.05))
-
-        # 导出或显示
-        if out_path:
-            scene.export(out_path)
-            print(f"visualization exported to: {out_path}")
-        if show:
-            scene.show()
-    def calculate_normal_shear_force(self) -> tuple[torch.Tensor, torch.Tensor]:
-        profile = True
-        if profile:
-            print(f"calculate_normal_shear_force time: {time.time()}")
-        self.visualization_counter += 1
-        if self.peg_sdf is None:
-            num_total_points = 2 * self.num_points_per_finger
-            return torch.zeros(self.num_envs, num_total_points, device=self.device), \
-                   torch.zeros(self.num_envs, num_total_points, 2, device=self.device)
-
-        # --- 步骤 1: 获取所有位姿和速度 ---
-        peg_pos_w, peg_quat_w = self._peg.data.root_pos_w, self._peg.data.root_quat_w
-        peg_lin_vel_w, peg_ang_vel_w = self._peg.data.root_lin_vel_w, self._peg.data.root_ang_vel_w
+    def update(self):
+        """在每个仿真步骤中被调用，以计算并施加触觉力。"""
+        # 1. 获取球体和立方体的当前姿态
+        sphere_pos_w = self.env._held_asset.data.root_pos_w
+        sphere_quat_w = self.env._held_asset.data.root_quat_w
+        sphere_linvel_w = self.env._held_asset.data.root_lin_vel_w
+        sphere_angvel_w = self.env._held_asset.data.root_ang_vel_w
 
         left_finger_pos_w, left_finger_quat_w = self._robot.data.body_pos_w[:, self.left_finger_idx], self._robot.data.body_quat_w[:, self.left_finger_idx]
-        left_finger_lin_vel_w, left_finger_ang_vel_w = self._robot.data.body_lin_vel_w[:, self.left_finger_idx] * 0.0, self._robot.data.body_ang_vel_w[:, self.left_finger_idx]
-        
+        left_finger_lin_vel_w, left_finger_ang_vel_w = self._robot.data.body_lin_vel_w[:, self.left_finger_idx] , self._robot.data.body_ang_vel_w[:, self.left_finger_idx]
+
         right_finger_pos_w, right_finger_quat_w = self._robot.data.body_pos_w[:, self.right_finger_idx], self._robot.data.body_quat_w[:, self.right_finger_idx]
-        right_finger_lin_vel_w, right_finger_ang_vel_w = self._robot.data.body_lin_vel_w[:, self.right_finger_idx] * 0.0, self._robot.data.body_ang_vel_w[:, self.right_finger_idx]
-        if profile:
-            print(f"get finger pose and velocity time: {time.time()}")
-        # --- 步骤 2: 计算触觉点的位置和速度 ---
-        tactile_points_left_w = tf_apply(left_finger_quat_w, left_finger_pos_w, self.tactile_points_left_local)
-        #visualize tactile_points_left_w by trimesh it is torch.Size([1, 2500, 3])
-        
+        right_finger_lin_vel_w, right_finger_ang_vel_w = self._robot.data.body_lin_vel_w[:, self.right_finger_idx] , self._robot.data.body_ang_vel_w[:, self.right_finger_idx]
 
-        tactile_points_right_w = tf_apply(right_finger_quat_w, right_finger_pos_w, self.tactile_points_right_local)
-        all_tactile_points_w = torch.cat([tactile_points_left_w, tactile_points_right_w], dim=1)
-        # all_tactile_points_w = tactile_points_left_w
+        # cube_pos_w = left_finger_pos_w
+        # cube_quat_w = left_finger_quat_w
+        # cube_linvel_w = left_finger_lin_vel_w
+        # cube_angvel_w = left_finger_ang_vel_w
         
-        #visualize tactile_points_right_w by trimesh it is torch.Size([1, 2500, 3])
-        # scene = trimesh.Scene()
-        # scene.add_geometry(trimesh.PointCloud(tactile_points_right_w[0].cpu().numpy(), colors=[0, 0, 255]))
-        # add peg pose peg_quat_w, peg_pos_w 
+        cube_pos_w = right_finger_pos_w
+        cube_quat_w = right_finger_quat_w
+        cube_linvel_w = right_finger_lin_vel_w
+        cube_angvel_w = right_finger_ang_vel_w
         
-        peg_transform = trimesh.transformations.quaternion_matrix(peg_quat_w[0].cpu().numpy())
-        peg_transform[:3, 3] = peg_pos_w[0].cpu().numpy()
-        # scene.add_geometry(trimesh.creation.axis(origin_size=0.005, axis_radius=0.001, axis_length=0.05), transform=peg_transform)
-        # scene.show()
-        r_left = tactile_points_left_w - left_finger_pos_w.unsqueeze(1)
-        tactile_vel_left_w = left_finger_lin_vel_w.unsqueeze(1) + torch.cross(left_finger_ang_vel_w.unsqueeze(1), r_left, dim=-1)
-        r_right = tactile_points_right_w - right_finger_pos_w.unsqueeze(1)
-        tactile_vel_right_w = right_finger_lin_vel_w.unsqueeze(1) + torch.cross(right_finger_ang_vel_w.unsqueeze(1), r_right, dim=-1)
-        all_tactile_vel_w = torch.cat([tactile_vel_left_w, tactile_vel_right_w], dim=1)
+        self.tactile_points_local = self.tactile_points_left_local
 
-        peg_pose_inv_quat, peg_pose_inv_pos = tf_inverse(peg_quat_w, peg_pos_w)
-        all_tactile_points_peg_local = tf_apply(peg_pose_inv_quat, peg_pose_inv_pos, all_tactile_points_w)
+        # 2. 将局部触觉点转换到世界坐标系
+        tactile_points_world = tf_apply(
+            cube_quat_w, cube_pos_w, self.tactile_points_local
+        )
 
-        batch_size, num_points, _ = all_tactile_points_peg_local.shape
-        points_np = all_tactile_points_peg_local.view(-1, 3).cpu().numpy()
-        if(profile):
-            print("step 222", time.time())
- 
-        distances_np = self.peg_sdf(points_np)
-        if(profile):
-            print("calcuate SDF, ", time.time())
-        penetration_depth = torch.from_numpy(-np.minimum(-distances_np, 0)).to(self.device).view(batch_size, num_points)
-        
-        normal_forces = self.tactile_kn * penetration_depth
-        left_normal = normal_forces[:, :self.num_points_per_finger]
-        right_normal = normal_forces[:,self.num_points_per_finger:]
+        # 3. 将世界坐标系中的点转换到球体的局部坐标系
+        sphere_pose_inv = tf_inverse(sphere_quat_w, sphere_pos_w)
+        tactile_points_sphere_local = tf_apply(
+            sphere_pose_inv[0], sphere_pose_inv[1], tactile_points_world
+        )
 
-        torchvision.utils.save_image(left_normal.reshape(self.num_rows_per_finger, self.num_cols_per_finger).transpose(1,0).flip(dims=[1]) * 500, os.path.join(self.env.log_img_save_path, "left_normal_forces.png") )
-        torchvision.utils.save_image(right_normal.reshape(self.num_rows_per_finger, self.num_cols_per_finger).transpose(1,0).flip(dims=[1]) * 500, os.path.join(self.env.log_img_save_path, "right_normal_forces.png") )
-        # visualize normal_forces by trimesh
-        normal_forces_mag = self.tactile_kn * penetration_depth
-        # --- 步骤 4: 计算剪切力 ---
-        shear_forces = torch.zeros(batch_size, num_points, 2, device=self.device)
+        # 4. 查询 SDF 以获取穿透深度
+        points_np = tactile_points_sphere_local.cpu().numpy().squeeze(0)
         
-        contact_points_for_viz = torch.tensor([], device=self.device)
-        normals_for_viz = torch.tensor([], device=self.device)
-        vt_for_viz = torch.tensor([], device=self.device)
-        ft_for_viz = torch.tensor([], device=self.device)
-        
-        contact_mask = penetration_depth > 1e-6
-
-        # --- 步骤 3: 计算穿透深度和表面法线 ---
-        peg_pose_inv_quat, peg_pose_inv_pos = quat_inv(peg_quat_w), -quat_apply(quat_inv(peg_quat_w), peg_pos_w)
-        all_tactile_points_peg_local = quat_apply(peg_pose_inv_quat.unsqueeze(1), all_tactile_points_w) + peg_pose_inv_pos.unsqueeze(1)
-        
-        batch_size, num_points, _ = all_tactile_points_peg_local.shape
-        points_np = all_tactile_points_peg_local.view(-1, 3).cpu().numpy()
-        distances_np = self.peg_sdf(points_np)
-        
-        # 穿透深度为正值 (d > 0 for penetration)
-        penetration_depth = torch.from_numpy(-np.minimum(-distances_np, 0)).to(self.device).view(batch_size, num_points).clamp(min=0.0)
-        
-        # 初始化最终输出张量
-        final_normal_forces = torch.zeros_like(penetration_depth)
-        final_shear_forces = torch.zeros(batch_size, num_points, 2, device=self.device)
-        if(profile):
-            print("before shear force, ", time.time())
-        # --- 步骤 4: 对接触点计算3D接触力 ---
-        contact_mask = penetration_depth > 1e-6
-        if torch.any(contact_mask):
-            # (4a) 计算世界坐标系下的表面法线 (n)
-            contact_points_local = all_tactile_points_peg_local[contact_mask]
-            eps = 1e-5
-            grad_x = self.peg_sdf(contact_points_local.cpu().numpy() + np.array([eps, 0, 0])) - self.peg_sdf(contact_points_local.cpu().numpy() - np.array([eps, 0, 0]))
-            grad_y = self.peg_sdf(contact_points_local.cpu().numpy() + np.array([0, eps, 0])) - self.peg_sdf(contact_points_local.cpu().numpy() - np.array([0, eps, 0]))
-            grad_z = self.peg_sdf(contact_points_local.cpu().numpy() + np.array([0, 0, eps])) - self.peg_sdf(contact_points_local.cpu().numpy() - np.array([0, 0, eps]))
-            grad = torch.from_numpy(np.stack([grad_x, grad_y, grad_z], axis=-1)).to(self.device)
-            
-            # self.visualize_gradients_trimesh(
-            #     all_tactile_points_peg_local=all_tactile_points_peg_local,
-            #     contact_mask=contact_mask,
-            #     grad=grad,
-            #     frame="peg",
-            #     peg_mesh_trimesh=getattr(self, "peg_trimesh", None),
-            #     show=True,
-            #     out_path=None,
-            #     subsample=1,
-            #     arrow_scale=0.02,
-            # )
+        if self.depth_calculation_method == "pysdf":
+            distances_np = self.sphere_sdf(
+                points_np
+            )  # pysdf: positive outside, negative inside
+            sdf_penetration_depth_np = -np.minimum(-distances_np, 0)
+            sdf_penetration_depth = torch.from_numpy(sdf_penetration_depth_np).to(self.device)
             # import pdb; pdb.set_trace()
-            contact_normals_local = -torch.nn.functional.normalize(grad, p=2, dim=-1)
-            peg_quat_w_expanded = peg_quat_w.unsqueeze(1).expand(batch_size, num_points, 4)[contact_mask]
-            contact_normals_w = quat_apply(peg_quat_w_expanded, contact_normals_local) # 'n' in world frame
+            # 5. 计算法向力
+            contact_mask = sdf_penetration_depth > 0
+            eps = 1e-6
+            # points_in_contact_np = points_np[contact_mask.cpu().numpy()]
+            grad_x = (
+                self.sphere_sdf(points_np + np.array([eps, 0, 0]))
+                - self.sphere_sdf(points_np - np.array([eps, 0, 0]))
+            ) / (2 * eps)
+            grad_y = (
+                self.sphere_sdf(points_np + np.array([0, eps, 0]))
+                - self.sphere_sdf(points_np - np.array([0, eps, 0]))
+            ) / (2 * eps)
+            grad_z = (
+                self.sphere_sdf(points_np + np.array([0, 0, eps]))
+                - self.sphere_sdf(points_np - np.array([0, 0, eps]))
+            ) / (2 * eps)
 
+            grad_np = np.stack([grad_x, grad_y, grad_z], axis=-1)
+            grad = torch.from_numpy(grad_np).to(self.device)
 
-            # (4b) 计算相对速度和其法向/切向分量 (d_dot, v_t)
-            # 计算物体表面接触点的速度
-            contact_depth_expanded = penetration_depth[contact_mask].unsqueeze(-1)
-            closest_points_on_surface_local = contact_points_local - contact_depth_expanded * contact_normals_local
-            peg_pos_w_expanded = peg_pos_w.unsqueeze(1).expand(batch_size, num_points, 3)[contact_mask]
-            closest_points_on_surface_w = quat_apply(peg_quat_w_expanded, closest_points_on_surface_local) + peg_pos_w_expanded
+            sdf_normals_local = torch.zeros_like(self.tactile_points_local)
+            sdf_normals_local[:] = -math_utils.normalize(grad)
             
-            peg_ang_vel_w_expanded = peg_ang_vel_w.unsqueeze(1).expand(batch_size, num_points, 3)[contact_mask]
-            peg_lin_vel_w_expanded = peg_lin_vel_w.unsqueeze(1).expand(batch_size, num_points, 3)[contact_mask]
-            peg_surface_vel_w = torch.cross(peg_ang_vel_w_expanded, closest_points_on_surface_w - peg_pos_w_expanded, dim=-1) + peg_lin_vel_w_expanded
+            penetration_depth = sdf_penetration_depth
+            normals_local = sdf_normals_local
+        elif self.depth_calculation_method == "warp":
+            pts_wp   = wp.array(points_np, dtype=wp.vec3f,  device=self.device)
+            out_d_wp = wp.empty(pts_wp.shape[0], dtype=wp.float32, device=self.device)
+            out_m_wp = wp.empty(pts_wp.shape[0], dtype=wp.int32,   device=self.device)
+            out_n_wp = wp.empty(pts_wp.shape[0], dtype=wp.vec3f,   device=self.device)
+            wp.launch(
+                kernel=_warp_depth_normal_kernel,
+                dim=pts_wp.shape[0],
+                inputs=[self.sphere_wp_mesh.id, pts_wp, out_d_wp, out_m_wp, out_n_wp],
+                device=self.device,
+            )
+            wp_distances_np       = torch.from_numpy(out_d_wp.numpy()).to(self.device).reshape(self.num_envs, self.num_tactile_points).clamp(min=0.0)   # (B,N)
+            wp_normals_local  = torch.from_numpy(out_n_wp.numpy()).to(self.device).reshape(self.num_envs, self.num_tactile_points, 3)              # (B,N,3)
+            contact_mask = wp_distances_np > 0
             
-            # 相对速度
-            contact_vel_w = all_tactile_vel_w[contact_mask]
-            relative_velocity_w = contact_vel_w - peg_surface_vel_w
-            
-            # 法向速度 (d_dot)
-            # 论文中d<=0, 接近时d_dot<0。我们d>=0, 接近时d_dot = dot(v_rel, n) < 0。公式-kd*d_dot，结果一致。
-            d_dot = torch.sum(relative_velocity_w * contact_normals_w, dim=-1)
-            
-            # 切向速度 (v_t)
-            vt_w = relative_velocity_w - d_dot.unsqueeze(-1) * contact_normals_w
+            penetration_depth = wp_distances_np
+            normals_local = -wp_normals_local
 
-            # (4c) 计算3D法向力向量 (f_n)
-            fn_mag_stiffness = self.tactile_kn * penetration_depth[contact_mask]
-            fn_mag_damping = -self.tactile_kd * d_dot # 阻尼项，d_dot为负时产生正向阻力
-            fn_total_mag = (fn_mag_stiffness + fn_mag_damping).clamp(min=0) # 法向力不能是拉力
-            f_n_world = fn_total_mag.unsqueeze(-1) * contact_normals_w
+        
 
-            # (4d) 计算3D摩擦力向量 (f_t)
-            vt_norm = torch.linalg.norm(vt_w, dim=-1)
-            ft_static_norm = self.tactile_kt * vt_norm
-            ft_dynamic_norm = self.tactile_mu * fn_total_mag # 摩擦力上限与总法向力相关
+        
+        if not torch.any(contact_mask):
+            return
+        # -- 使用中心差分法更精确地计算梯度 --
+        
 
-            ft_mag = torch.minimum(ft_static_norm, ft_dynamic_norm)
-            ft_mag = ft_static_norm
-            vt_direction = vt_w / (vt_norm.unsqueeze(-1) + 1e-9) # 避免除以零
-            f_t_world = -ft_mag.unsqueeze(-1) * vt_direction
+        # finish the query collision
+        
+        tactile_points_world_velocity = torch.cross(cube_angvel_w.unsqueeze(1).expand((self.num_envs, self.num_tactile_points, 3)), math_utils.quat_apply(sphere_quat_w, self.tactile_points_local), dim = -1) + cube_linvel_w.expand((self.num_envs, self.num_tactile_points, 3))
 
-            # (4e) 计算总的3D接触力 (f = f_n + f_t)
-            f_world = f_n_world + f_t_world
+        # points_in_contact_local = tactile_points_sphere_local.squeeze(0)[contact_mask]
+        
+        # penetration_depth_in_contact = penetration_depth[contact_mask]
+        # normals_in_contact = normals_local[contact_mask]
+        # 从穿透点沿法线方向移回穿透深度，得到表面上的点
+        closest_points_local = (tactile_points_sphere_local+ penetration_depth.unsqueeze(-1) *normals_local)
+        
+        closest_points_world = tf_apply(sphere_quat_w, sphere_pos_w, closest_points_local)
 
-            # (4f) 将总力 f_world 投影到传感器局部坐标系，得到最终输出 (T_n, T_sx, T_sy)
-            # 我们定义传感器的z轴与表面法线n对齐，x,y轴在切平面上
-            z_axis_sensor = contact_normals_w
-            up_vec = torch.tensor([0.0, 0.0, 1.0], device=self.device).expand_as(z_axis_sensor)
-            parallel_mask = torch.linalg.norm(torch.cross(z_axis_sensor, up_vec, dim=-1), dim=-1) < 1e-6
-            up_vec[parallel_mask] = torch.tensor([1.0, 0.0, 0.0], device=self.device)
-            
-            x_axis_sensor = torch.nn.functional.normalize(torch.cross(up_vec, z_axis_sensor, dim=-1), p=2, dim=-1)
-            y_axis_sensor = torch.cross(z_axis_sensor, x_axis_sensor, dim=-1)
 
-            # 执行投影
-            projected_normal_force = torch.sum(f_world * z_axis_sensor, dim=-1)
-            projected_shear_x = torch.sum(f_world * x_axis_sensor, dim=-1)
-            projected_shear_y = torch.sum(f_world * y_axis_sensor, dim=-1)
 
-            # 将计算结果填充回主张量
-            final_normal_forces[contact_mask] = projected_normal_force
-            final_shear_forces[contact_mask] = torch.stack([projected_shear_x, projected_shear_y], dim=-1)
-            final_shear_forces[contact_mask][:,0] = final_shear_forces[contact_mask][:,0] *  (torch.ones_like(grad[:,0] < 0) * (grad[:,0] < 0) * -1)
-            # self._visualize_shear_force_vectors(
-            #     contact_points_w=contact_points_for_viz,
-            #     contact_normals_w=normals_for_viz,
-            #     vt_w=vt_for_viz,
-            #     ft_world=ft_for_viz,
-            #     env_idx=0
-            # )
-            left_normal_forces = final_normal_forces[0, :self.num_points_per_finger].view(self.num_rows_per_finger, self.num_cols_per_finger)
-            left_shear_forces = final_shear_forces[0, :self.num_points_per_finger, :].view(self.num_rows_per_finger, self.num_cols_per_finger, 2)
-            
-            right_normal_forces = final_normal_forces[0, self.num_points_per_finger:].view(self.num_rows_per_finger, self.num_cols_per_finger)
-            right_shear_forces = final_shear_forces[0, self.num_points_per_finger:, :].view(self.num_rows_per_finger, self.num_cols_per_finger, 2)
-            
-            
-            if(profile):
-                print("before shear force image, ", time.time())
-            img = visualize_tactile_shear_image(left_normal_forces.cpu().numpy(), left_shear_forces.cpu().numpy(), normal_force_threshold=0.1, shear_force_threshold=0.01, resolution=100)
-            # rotate img 90 degree
-            img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+        normal_world = math_utils.quat_apply(sphere_quat_w, normals_local)
+        
+        
+        closest_points_velocity_world = (torch.cross(sphere_angvel_w.unsqueeze(1).expand((self.num_envs, self.num_tactile_points, 3)),math_utils.quat_apply(sphere_pose_inv[0], closest_points_local),dim=-1)+ sphere_linvel_w.expand((self.num_envs, self.num_tactile_points, 3)))
+        
+        
+        relative_velocity_world = tactile_points_world_velocity - closest_points_velocity_world
+
+        vt_world = relative_velocity_world - normal_world * torch.sum(normal_world * relative_velocity_world, dim=-1, keepdim=True)
+
+        
+
+        depth, depth_dot, normal_world, vt_world = penetration_depth, "", normal_world, vt_world
+
+        fc_norm = self.tactile_kn * depth #- self.tactile_damping * depth_dot * depth
+        fc_world = fc_norm.unsqueeze(-1) * normal_world
+        
+        '''compute frictional force'''
+        vt_norm = vt_world.norm(dim=-1)
+        ft_static_norm = self.tactile_kt * vt_norm
+        ft_dynamic_norm = self.tactile_mu * fc_norm
+        ft_world = - torch.minimum(ft_static_norm, ft_dynamic_norm).unsqueeze(-1) * vt_world / vt_norm.clamp(min=1e-9, max=None).unsqueeze(-1)
+        # ft_world = -ft_dynamic_norm.unsqueeze(-1) * vt_world / vt_norm.clamp(min=1e-9, max=None).unsqueeze(-1)
+        '''net tactile force'''
+        tactile_force_world = fc_world + ft_world
+        
+        '''tactile force in tactile frame'''
+        quat_pad_inv = math_utils.quat_conjugate(cube_quat_w)
+        tactile_force_pad = math_utils.quat_apply(quat_pad_inv.unsqueeze(1).expand(self.num_envs, self.num_tactile_points, 4), tactile_force_world)
+        
+        UnitX = torch.tensor([1., 0., 0.], device=self.device)
+        UnitY = torch.tensor([0., 1., 0.], device=self.device)
+        UnitZ = torch.tensor([0., 0., -1.], device=self.device)
+        tactile_normal_axis = math_utils.quat_apply(self.tactile_quat_local, UnitZ.unsqueeze(0).unsqueeze(0).expand(self.num_envs, self.num_tactile_points, 3))
+        tactile_shear_x_axis = math_utils.quat_apply(self.tactile_quat_local, UnitX.unsqueeze(0).unsqueeze(0).expand(self.num_envs, self.num_tactile_points, 3))
+        tactile_shear_y_axis = math_utils.quat_apply(self.tactile_quat_local, UnitY.unsqueeze(0).unsqueeze(0).expand(self.num_envs, self.num_tactile_points, 3))
+        
+        tactile_normal_force = -(tactile_normal_axis * tactile_force_pad).sum(-1)
+        tactile_shear_force_x = (tactile_shear_x_axis * tactile_force_pad).sum(-1)
+        tactile_shear_force_y = (tactile_shear_y_axis * tactile_force_pad).sum(-1)
+        tactile_shear_force = torch.cat((tactile_shear_force_x.unsqueeze(-1), tactile_shear_force_y.unsqueeze(-1)), dim=-1)
+        if self.enable_visualization:
+            tactile_image = visualize_tactile_shear_image(tactile_normal_force[0].view((self.num_rows, self.num_cols)).cpu().numpy(), tactile_shear_force[0].view((self.num_rows, self.num_cols, 2)).cpu().numpy(), normal_force_threshold=0.003, shear_force_threshold=0.001)
             # import pdb; pdb.set_trace()
-            cv2.imwrite(os.path.join(self.env.log_img_save_path, "left_tactile_shear_image.png"), (img * 255.0).astype(np.uint8))
-            
-            img = visualize_tactile_shear_image(right_normal_forces.cpu().numpy(), right_shear_forces.cpu().numpy(), normal_force_threshold=0.1, shear_force_threshold=0.01, resolution=100)
-            # rotate img 90 degree
-            img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-            # import pdb; pdb.set_trace()
-            cv2.imwrite(os.path.join(self.env.log_img_save_path, "right_tactile_shear_image.png"), (img * 255.0).astype(np.uint8))
-            
-            if(profile):
-                print("end shear force image, ", time.time())
-        env_0_contact_mask = contact_mask[0]
-        # self._visualize_force_model_vectors(
-        #                 contact_points_w=all_tactile_points_w[0][env_0_contact_mask].cpu().numpy(),
-        #                 contact_normals_w=contact_normals_w.cpu().numpy(),
-        #                 vt_w=vt_w.cpu().numpy(),
-        #                 f_n_world=f_n_world.cpu().numpy(),
-        #                 f_t_world=f_t_world.cpu().numpy(),
-        #                 f_world=f_world.cpu().numpy(),
-        #                 env_idx=0
-        #             )
-        # visualize_tactile_shear_image(right_normal_forces, right_shear_forces, normal_force_threshold=0.00008, shear_force_threshold=0.0005, resolution=30)
-        return normal_forces, shear_forces
+            # cv2.imwrite(os.path.join(r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac", "tactile_shear_image.png"), (visualize_tactile_shear_image(tactile_normal_force[0].view((self.num_rows, self.num_cols)).cpu().numpy(), tactile_shear_force[0].view((self.num_rows, self.num_cols, 2)).cpu().numpy(), normal_force_threshold=0.003, shear_force_threshold=0.002)*255.0).astype(np.uint8))
+            cv2.imwrite(os.path.join(r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac", "tactile_shear_image.png"), (visualize_tactile_shear_image(tactile_normal_force[0].view((self.num_rows, self.num_cols)).cpu().numpy(), tactile_shear_force[0].view((self.num_rows, self.num_cols, 2)).cpu().numpy(), normal_force_threshold=0.003, shear_force_threshold=0.002)*255.0).astype(np.uint8))
+            # cv2.imshow("tactile_shear_image", tactile_image)
+            # cv2.waitKey(1)
+        # 8. 可视化力
+        if self.enable_visualization and False:  # Periodically visualize
+            # -- MODIFICATION: Calculate contact patch for visualization --
+            points_in_contact_local = tactile_points_sphere_local.squeeze(0)[
+                contact_mask
+            ]
+            penetration_depth_in_contact = penetration_depth[contact_mask]
+            normals_in_contact = normals_local[contact_mask]
 
-    def update(self) -> torch.Tensor:
-        self.visualization_counter += 1
+            # 从穿透点沿法线方向移回穿透深度，得到表面上的点
+            closest_points_local = (
+                points_in_contact_local
+                + penetration_depth_in_contact.unsqueeze(-1) * normals_in_contact
+            )
+            closest_points_world = tf_apply(
+                sphere_quat_w, sphere_pos_w, closest_points_local.unsqueeze(0)
+            )
 
-        # if self.peg_sdf is None:
-        #     return torch.zeros(self.num_envs, 2 * self.num_points_per_finger, device=self.device)
+            contact_points_world_viz = tactile_points_world.squeeze(0)[contact_mask]
+            force_magnitudes = self.tactile_kn * penetration_depth
+            forces_local = normals_local * force_magnitudes.unsqueeze(-1)
+            force_vectors_to_visualize = forces_world[contact_mask]
+            forces_world = math_utils.quat_apply(sphere_quat_w.repeat(self.num_tactile_points, 1), forces_local)
+            self.visualize_forces(
+                contact_points_world_viz,
+                force_vectors_to_visualize,
+                closest_points_world.squeeze(0),
+            )
 
-        # # --- 1. 获取所有位姿 ---
-        # peg_pos_w, peg_quat_w = self._peg.data.root_pos_w, self._peg.data.root_quat_w
-        # left_finger_pos_w, left_finger_quat_w = self._robot.data.body_pos_w[:, self.left_finger_idx], self._robot.data.body_quat_w[:, self.left_finger_idx]
-        # right_finger_pos_w, right_finger_quat_w = self._robot.data.body_pos_w[:, self.right_finger_idx], self._robot.data.body_quat_w[:, self.right_finger_idx]
-        
-        # # --- 2. 执行坐标变换 ---
-        # tactile_points_left_w = tf_apply(left_finger_quat_w, left_finger_pos_w, self.tactile_points_left_local)
-        # tactile_points_right_w = tf_apply(right_finger_quat_w, right_finger_pos_w, self.tactile_points_right_local)
-
-        # all_tactile_points_w = torch.cat([tactile_points_left_w, tactile_points_right_w], dim=1)
-        # peg_pose_inv_quat, peg_pose_inv_pos = tf_inverse(peg_quat_w, peg_pos_w)
-        # all_tactile_points_peg_local = tf_apply(peg_pose_inv_quat, peg_pose_inv_pos, all_tactile_points_w)
-
-        # # --- 3. 检查是否需要进行调试可视化 ---
-        # if self.enable_debug_visualization and self.visualization_counter % self.visualization_interval == 0:
-        #     # -- FIX: Manually construct transformation matrices from pos and quat --
-        #     # Helper function to create a 4x4 matrix
-        #     def create_transform_matrix(pos_np, quat_np_wxyz):
-        #         # trimesh expects quaternion as [w, x, y, z]
-        #         quat_np_wxyz = np.array([quat_np_wxyz[0], quat_np_wxyz[1], quat_np_wxyz[2], quat_np_wxyz[3]])
-        #         matrix = trimesh.transformations.quaternion_matrix(quat_np_wxyz)
-        #         matrix[:3, 3] = pos_np
-        #         return matrix
-
-        #     # Prepare data for env 0
-        #     peg_pos_np = self._peg.data.root_pos_w[0].cpu().numpy()
-        #     peg_quat_np = self._peg.data.root_quat_w[0].cpu().numpy()
-            
-        #     finger_l_pos_np = self._robot.data.body_pos_w[0, self.left_finger_idx].cpu().numpy()
-        #     finger_l_quat_np = self._robot.data.body_quat_w[0, self.left_finger_idx].cpu().numpy()
-
-        #     finger_r_pos_np = self._robot.data.body_pos_w[0, self.right_finger_idx].cpu().numpy()
-        #     finger_r_quat_np = self._robot.data.body_quat_w[0, self.right_finger_idx].cpu().numpy()
-
-        #     # Create the dictionary of matrices
-        #     transforms = {
-        #         "peg_w": create_transform_matrix(peg_pos_np, peg_quat_np),
-        #         "finger_l_w": create_transform_matrix(finger_l_pos_np, finger_l_quat_np),
-        #         "finger_r_w": create_transform_matrix(finger_r_pos_np, finger_r_quat_np)
-        #     }
-            
-        #     self._debug_visualize_transforms(
-        #         local_l=self.tactile_points_left_local[0].cpu().numpy(),
-        #         local_r=self.tactile_points_right_local[0].cpu().numpy(),
-        #         world_l=tactile_points_left_w[0].cpu().numpy(),
-        #         world_r=tactile_points_right_w[0].cpu().numpy(),
-        #         peg_local=all_tactile_points_peg_local[0].cpu().numpy(),
-        #         transforms=transforms,
-        #         all_tactile_points_w = all_tactile_points_w
-        #     )
-        
-        # # --- 4. 计算SDF并生成触觉图像 (这部分逻辑不变) ---
-        # batch_size, num_points, _ = all_tactile_points_peg_local.shape
-        # points_np = all_tactile_points_peg_local.view(-1, 3).cpu().numpy()
-        # distances_np = self.peg_sdf(points_np)
-        
-        # penetration_depth_np = -np.minimum(-distances_np, 0)
-        # tactile_image = torch.from_numpy(penetration_depth_np).to(self.device).view(batch_size, num_points)
-
-        # # import cv2
-        # # print(tactile_image)
-        # # depth_image = (tactile_image.reshape(50, 100).cpu().numpy() * 25500).astype(np.uint8)
-        # # depth_image = cv2.resize(depth_image, (300, 600))
-        # # cv2.imshow("depth_image", depth_image)
-        # # cv2.waitKey(1)
-        # # --- 5. 检查是否需要进行最终的触觉热力图可视化 ---
-        # if self.enable_tactile_visualization and self.visualization_counter % self.visualization_interval == 0:
-        #     def create_transform_matrix(pos_np, quat_np_wxyz):
-        #         # Isaac Lab [w, x, y, z] -> trimesh [w, x, y, z]
-        #         matrix = trimesh.transformations.quaternion_matrix(quat_np_wxyz)
-        #         matrix[:3, 3] = pos_np
-        #         return matrix
-
-        #     transforms = {
-        #         "peg_w": create_transform_matrix(peg_pos_w[0].cpu().numpy(), peg_quat_w[0].cpu().numpy()),
-        #         "finger_l_w": create_transform_matrix(left_finger_pos_w[0].cpu().numpy(), left_finger_quat_w[0].cpu().numpy()),
-        #         "finger_r_w": create_transform_matrix(right_finger_pos_w[0].cpu().numpy(), right_finger_quat_w[0].cpu().numpy())
-        #     }
-            
-        #     self._visualize_tactile_contact(
-        #         all_tactile_points_w,
-        #         tactile_image,
-        #         all_tactile_points_peg_local,
-        #         transforms
-        #     )
-
-        
-        debug = True
-        if debug:
-            current_tactile_image = self.env.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3)
-            torchvision.utils.save_image( (current_tactile_image - current_tactile_image.min()) / (current_tactile_image.max() - current_tactile_image.min()), os.path.join(self.env.log_img_save_path, "tactile_depth_image.png" ) )
-            torchvision.utils.save_image(self.env.scene.sensors["tactile_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "tactile_rgb_image.png" ) )
-            
-            torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "gripper_image.png" ) )
-            torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.env.log_img_save_path, "gripper_depth_image.png" ) )
-
-            tactile_depth_image = current_tactile_image - self.env.initial_tactile_image
-            tactile_depth_image = (tactile_depth_image - tactile_depth_image.min()) / (tactile_depth_image.max() - tactile_depth_image.min())
-            # import pdb; pdb.set_trace()
-            torchvision.utils.save_image(tactile_depth_image, os.path.join(self.env.log_img_save_path, "tactile_depth_image_diff.png" ) )
-
-        self.calculate_normal_shear_force()
-
-
-        return ""
-
-
+    def get_scene_entities(self):
+        """返回此系统创建的场景实体。"""
+        entities = {
+            "cube": self.cube,
+            "sphere": self.sphere,
+            "tactile_system": self,
+        }
+        return entities
 
 class FactoryEnv(DirectRLEnv):
     cfg: FactoryEnvCfg
@@ -1031,7 +1542,7 @@ class FactoryEnv(DirectRLEnv):
         self._compute_intermediate_values(dt=self.physics_dt)
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.log_img_save_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "..")
-        self.tactile_system = TactileSensingSystem(self)
+        self.tactile_system = TactileSystem(self)
 
     def _set_body_inertias(self):
         """Note: this is to account for the asset_options.armature parameter in IGE."""
@@ -1123,7 +1634,7 @@ class FactoryEnv(DirectRLEnv):
         from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg, spawn_rigid_body_material
 
         soft_material_cfg = RigidBodyMaterialCfg(
-            compliant_contact_stiffness=60000.0,
+            compliant_contact_stiffness=6000.0,
             compliant_contact_damping=0.0
         )
         
@@ -1136,11 +1647,11 @@ class FactoryEnv(DirectRLEnv):
         
         self.sim.step() # 确保材质和机器人 Prim 都已加载
 
-        self._gripper_camera = Camera(self.cfg.gripper_camera)
-        self.scene.sensors["gripper_camera"] = self._gripper_camera
+        # self._gripper_camera = Camera(self.cfg.gripper_camera)
+        # self.scene.sensors["gripper_camera"] = self._gripper_camera
 
-        self._tactile_camera = Camera(self.cfg.tactile_camera)
-        self.scene.sensors["tactile_camera"] = self._tactile_camera
+        # self._tactile_camera = Camera(self.cfg.tactile_camera)
+        # self.scene.sensors["tactile_camera"] = self._tactile_camera
 
         
 
@@ -1310,7 +1821,7 @@ class FactoryEnv(DirectRLEnv):
         # lift_action = torch.tensor([[0,0,1.0,0,0,0]], device=self.device)
         # down_action = torch.tensor([[0,0,-1.0,0,0,0]], device=self.device)
         # self.actions = lift_action
-        # tactile_data = self.tactile_system.update()
+        tactile_data = self.tactile_system.update()
 
     def close_gripper_in_place(self):
         """Keep gripper in current position as gripper closes."""
@@ -1636,7 +2147,7 @@ class FactoryEnv(DirectRLEnv):
 
         self._set_assets_to_default_pose(env_ids)
         self._set_franka_to_default_pose(joints=self.cfg.ctrl.reset_joints, env_ids=env_ids)
-        self.initialize_tactile_image()
+        # self.initialize_tactile_image()
         self.step_sim_no_action()
 
         self.randomize_initial_state(env_ids)
@@ -1922,6 +2433,7 @@ class FactoryEnv(DirectRLEnv):
 
         held_state = self._held_asset.data.default_root_state.clone()
         held_state[:, 0:3] = translated_held_asset_pos + self.scene.env_origins
+        held_state[:, 2] -= 0.01
         held_state[:, 3:7] = translated_held_asset_quat
         held_state[:, 7:] = 0.0
         self._held_asset.write_root_pose_to_sim(held_state[:, 0:7])

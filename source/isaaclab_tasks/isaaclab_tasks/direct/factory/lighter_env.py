@@ -1029,7 +1029,13 @@ class LighterEnv(DirectRLEnv):
 
         soft_material_cfg = RigidBodyMaterialCfg(
             compliant_contact_stiffness=600.0,
-            compliant_contact_damping=0.0
+            compliant_contact_damping=0.0,
+            static_friction=0,        # 静摩擦系数（起步/粘住）
+            dynamic_friction=0,       # 动摩擦系数（滑动时）
+            restitution=0.0,            # 弹性恢复（0~1）
+            friction_combine_mode="average",      # 或 "min" | "max" | "multiply"
+            restitution_combine_mode="max",
+            # improve_patch_friction=True,        # 版本支持的话可打开，提升接触稳定性
         )
         
         # 在场景中创建一个新的物理材质 Prim。路径可以自定义，"/World/Looks/" 是常用约定
@@ -1052,6 +1058,7 @@ class LighterEnv(DirectRLEnv):
         # return
         # self.nominal_depth = self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].clone()
         # import pdb; pdb.set_trace()
+        return
         for i in range(self.scene.num_envs):
             # 定义左右两个手指的 碰撞体 Prim 的路径
             paths_to_modify = [
@@ -1390,7 +1397,7 @@ class LighterEnv(DirectRLEnv):
     def _get_curr_successes(self, success_threshold, check_rot=False):
         """Get success mask at current timestep."""
         curr_successes = torch.zeros((self.num_envs,), dtype=torch.bool, device=self.device)
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         self.last_time_joints = self._fixed_asset.data.joint_pos[:,1].clone()
         return curr_successes
 
@@ -1418,12 +1425,12 @@ class LighterEnv(DirectRLEnv):
     def _get_rewards(self):
         """Update rewards and compute success statistics."""
         # Get successful and failed envs at current timestep
-
         if self.last_time_joints is not None:
             lighter_joints = self._fixed_asset.data.joint_pos[:,1]
             rewards = torch.zeros((self.num_envs,), device=self.device)
             rewards = lighter_joints - self.last_time_joints
-
+            rewards[self._fixed_asset.data.root_pos_w[:,2] < 0.01] = 0.0
+        # import pdb; pdb.set_trace()
         return rewards
 
     # def _get_factory_rew_dict(self, curr_successes):
