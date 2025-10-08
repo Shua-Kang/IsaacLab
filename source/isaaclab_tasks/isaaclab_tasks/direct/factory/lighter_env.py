@@ -1391,13 +1391,21 @@ class LighterEnv(DirectRLEnv):
         stay in sync (i.e., _get_dones should return all true or all false).
         """
         self._compute_intermediate_values(dt=self.physics_dt)
+        # write the legnth buf and max to a log file. Also the time
+        with open(os.path.join(r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\length.txt"), "a") as f:
+            f.write(f"length: {self.episode_length_buf}, max: {self.max_episode_length}\n")
+            f.write(f"time: {time.time()}\n")
+        # print("length", self.episode_length_buf, self.max_episode_length)
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         out_of_bounds = self.fixed_pos[:, 2] < 0.02
         task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
 
         terminated = torch.logical_or(out_of_bounds, task_done)
         truncated = time_out
-
+        with open(os.path.join(r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\terminated.txt"), "a") as f:
+            f.write(f"terminated: {sum(terminated)}\n")
+            f.write(f"truncated: {sum(truncated)}\n")
+            f.write(f"time: {time.time()}\n")
         return terminated, truncated
         # return time_out, time_out
 
@@ -1437,6 +1445,9 @@ class LighterEnv(DirectRLEnv):
             lighter_joints = self._fixed_asset.data.joint_pos[:,1]
             rewards = torch.zeros((self.num_envs,), device=self.device)
             rewards = lighter_joints - self.last_time_joints
+            with open(os.path.join(r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\rewards.txt"), "a") as f:
+                f.write(f"rewards: {rewards.mean()}\n")
+                f.write(f"time: {time.time()}\n")
             # rewards[(self._fixed_asset.data.root_pos_w[:,2] < 0.03) & (self._fixed_asset.data.root_pos_w[:,2] > 0.01)] = -0.001
             # rewards[self._fixed_asset.data.root_pos_w[:,2] < 0.01] = 0
             # import pdb; pdb.set_trace()
@@ -1516,17 +1527,17 @@ class LighterEnv(DirectRLEnv):
 
     def _reset_idx(self, env_ids):
         """We assume all envs will always be reset at the same time."""
-        if env_ids is None:
-            print("env_ids is None")
-            return
-        env_ids = env_ids.to(device=self.device, dtype=torch.long).view(-1)
-        if env_ids.numel() == 0:
-            print("env_ids is empty")
-            return  # 空集必须直接 return，避免后面任一 write_* 调用触发隐式广播或越界
+        # if env_ids is None:
+        #     print("env_ids is None")
+        #     return
+        # env_ids = env_ids.to(device=self.device, dtype=torch.long).view(-1)
+        # if env_ids.numel() == 0:
+        #     print("env_ids is empty")
+        #     return  # 空集必须直接 return，避免后面任一 write_* 调用触发隐式广播或越界
 
-        # 强校验范围
-        assert torch.all(env_ids >= 0), f"negative env id: {env_ids}"
-        assert torch.all(env_ids < self.num_envs), f"env id out of range: {env_ids.max()} vs {self.num_envs-1}"
+        # # 强校验范围
+        # assert torch.all(env_ids >= 0), f"negative env id: {env_ids}"
+        # assert torch.all(env_ids < self.num_envs), f"env id out of range: {env_ids.max()} vs {self.num_envs-1}"
 
 
         super()._reset_idx(env_ids)

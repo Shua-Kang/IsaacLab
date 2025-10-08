@@ -266,7 +266,7 @@ class FactoryEnvCfg(DirectRLEnvCfg):
     # )
 
 class LighterEnvCfg(DirectRLEnvCfg):
-    decimation = 1
+    decimation = 8
     action_space = 6
     # num_*: will be overwritten to correspond to obs_order, state_order.
     observation_space = 29
@@ -299,7 +299,6 @@ class LighterEnvCfg(DirectRLEnvCfg):
     obs_rand: ObsRandCfg = ObsRandCfg()
     ctrl: CtrlCfg = CtrlCfg()
 
-    episode_length_s = 100.0  # Probably need to override.
     sim: SimulationCfg = SimulationCfg(
         device="cuda:0",
         dt=1 / 120,
