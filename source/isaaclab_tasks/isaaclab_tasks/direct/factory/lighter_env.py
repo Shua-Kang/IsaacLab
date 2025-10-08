@@ -936,6 +936,8 @@ class LighterEnv(DirectRLEnv):
         self._compute_intermediate_values(dt=self.physics_dt)
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.log_img_save_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "..")
+        self.log_text_save_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "log_text")
+        os.makedirs(self.log_text_save_path, exist_ok=True)
         # self.tactile_system = TactileSensingSystem(self)
 
     def _set_body_inertias(self):
@@ -1392,7 +1394,7 @@ class LighterEnv(DirectRLEnv):
         """
         self._compute_intermediate_values(dt=self.physics_dt)
         # write the legnth buf and max to a log file. Also the time
-        with open(os.path.join(r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\length.txt"), "a") as f:
+        with open(os.path.join(self.log_text_save_path, "length.txt"), "a") as f:
             f.write(f"length: {self.episode_length_buf}, max: {self.max_episode_length}\n")
             f.write(f"time: {time.time()}\n")
         # print("length", self.episode_length_buf, self.max_episode_length)
@@ -1402,7 +1404,7 @@ class LighterEnv(DirectRLEnv):
 
         terminated = torch.logical_or(out_of_bounds, task_done)
         truncated = time_out
-        with open(os.path.join(r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\terminated.txt"), "a") as f:
+        with open(os.path.join(self.log_text_save_path, "terminated.txt"), "a") as f:
             f.write(f"terminated: {sum(terminated)}\n")
             f.write(f"truncated: {sum(truncated)}\n")
             f.write(f"time: {time.time()}\n")
@@ -1445,7 +1447,7 @@ class LighterEnv(DirectRLEnv):
             lighter_joints = self._fixed_asset.data.joint_pos[:,1]
             rewards = torch.zeros((self.num_envs,), device=self.device)
             rewards = lighter_joints - self.last_time_joints
-            with open(os.path.join(r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\rewards.txt"), "a") as f:
+            with open(os.path.join(self.log_text_save_path, "rewards.txt"), "a") as f:
                 f.write(f"rewards: {rewards.mean()}\n")
                 f.write(f"time: {time.time()}\n")
             # rewards[(self._fixed_asset.data.root_pos_w[:,2] < 0.03) & (self._fixed_asset.data.root_pos_w[:,2] > 0.01)] = -0.001
