@@ -1163,7 +1163,7 @@ class LighterEnv(DirectRLEnv):
         noisy_fixed_pos = self.fixed_pos_obs_frame + self.init_fixed_pos_obs_noise
 
         prev_actions = self.actions.clone()
-        
+
         obs_dict = {
             "fingertip_pos": self.fingertip_midpoint_pos,
             "fingertip_pos_rel_fixed": self.fingertip_midpoint_pos - noisy_fixed_pos,
@@ -1392,7 +1392,14 @@ class LighterEnv(DirectRLEnv):
         """
         self._compute_intermediate_values(dt=self.physics_dt)
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        return time_out, time_out
+        out_of_bounds = self.fixed_pos[:, 2] < 0.02
+        task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
+
+        terminated = torch.logical_or(out_of_bounds, task_done)
+        truncated = time_out
+
+        return terminated, truncated
+        # return time_out, time_out
 
     def _get_curr_successes(self, success_threshold, check_rot=False):
         """Get success mask at current timestep."""
@@ -1425,11 +1432,14 @@ class LighterEnv(DirectRLEnv):
     def _get_rewards(self):
         """Update rewards and compute success statistics."""
         # Get successful and failed envs at current timestep
+        
         if self.last_time_joints is not None:
             lighter_joints = self._fixed_asset.data.joint_pos[:,1]
             rewards = torch.zeros((self.num_envs,), device=self.device)
             rewards = lighter_joints - self.last_time_joints
-            rewards[self._fixed_asset.data.root_pos_w[:,2] < 0.01] = 0.0
+            # rewards[(self._fixed_asset.data.root_pos_w[:,2] < 0.03) & (self._fixed_asset.data.root_pos_w[:,2] > 0.01)] = -0.001
+            # rewards[self._fixed_asset.data.root_pos_w[:,2] < 0.01] = 0
+            # import pdb; pdb.set_trace()
         # import pdb; pdb.set_trace()
         return rewards
 
@@ -1506,6 +1516,18 @@ class LighterEnv(DirectRLEnv):
 
     def _reset_idx(self, env_ids):
         """We assume all envs will always be reset at the same time."""
+        if env_ids is None:
+            print("env_ids is None")
+            return
+        env_ids = env_ids.to(device=self.device, dtype=torch.long).view(-1)
+        if env_ids.numel() == 0:
+            print("env_ids is empty")
+            return  # 空集必须直接 return，避免后面任一 write_* 调用触发隐式广播或越界
+
+        # 强校验范围
+        assert torch.all(env_ids >= 0), f"negative env id: {env_ids}"
+        assert torch.all(env_ids < self.num_envs), f"env id out of range: {env_ids.max()} vs {self.num_envs-1}"
+
 
         super()._reset_idx(env_ids)
 
@@ -1538,12 +1560,12 @@ class LighterEnv(DirectRLEnv):
         """Set robot joint position using DLS IK."""
         ik_time = 0.0
         while ik_time < 0.25:
-            # Compute error to target.
+
             pos_error, axis_angle_error = factory_control.get_pose_error(
                 fingertip_midpoint_pos=self.fingertip_midpoint_pos[env_ids],
                 fingertip_midpoint_quat=self.fingertip_midpoint_quat[env_ids],
-                ctrl_target_fingertip_midpoint_pos=ctrl_target_fingertip_midpoint_pos[env_ids],
-                ctrl_target_fingertip_midpoint_quat=ctrl_target_fingertip_midpoint_quat[env_ids],
+                ctrl_target_fingertip_midpoint_pos=ctrl_target_fingertip_midpoint_pos,
+                ctrl_target_fingertip_midpoint_quat=ctrl_target_fingertip_midpoint_quat,
                 jacobian_type="geometric",
                 rot_error_type="axis_angle",
             )
@@ -1562,8 +1584,9 @@ class LighterEnv(DirectRLEnv):
 
             self.ctrl_target_joint_pos[env_ids, 0:7] = self.joint_pos[env_ids, 0:7]
             # Update dof state.
-            self._robot.write_joint_state_to_sim(self.joint_pos, self.joint_vel)
-            self._robot.set_joint_position_target(self.ctrl_target_joint_pos)
+
+            self._robot.write_joint_state_to_sim(self.joint_pos[env_ids], self.joint_vel[env_ids], env_ids=env_ids)
+            self._robot.set_joint_position_target(self.ctrl_target_joint_pos[env_ids], env_ids=env_ids)
 
             # Simulate and update tensors.
             self.step_sim_no_action()
@@ -1672,27 +1695,26 @@ class LighterEnv(DirectRLEnv):
         fixed_asset_pos_noise = torch.randn((len(env_ids), 3), dtype=torch.float32, device=self.device)
         fixed_asset_pos_rand = torch.tensor(self.cfg.obs_rand.fixed_asset_pos, dtype=torch.float32, device=self.device)
         fixed_asset_pos_noise = fixed_asset_pos_noise @ torch.diag(fixed_asset_pos_rand)
-        self.init_fixed_pos_obs_noise[:] = fixed_asset_pos_noise
+        self.init_fixed_pos_obs_noise[env_ids] = fixed_asset_pos_noise
 
         self.step_sim_no_action()
 
         # Compute the frame on the bolt that would be used as observation: fixed_pos_obs_frame
         # For example, the tip of the bolt can be used as the observation frame
-        fixed_tip_pos_local = torch.zeros((self.num_envs, 3), device=self.device)
+        fixed_tip_pos_local = torch.zeros((len(env_ids), 3), device=self.device)
         fixed_tip_pos_local[:, 2] += self.cfg_task.fixed_asset_cfg.height
         fixed_tip_pos_local[:, 2] += self.cfg_task.fixed_asset_cfg.base_height
-        if self.cfg_task.name == "gear_mesh":
-            fixed_tip_pos_local[:, 0] = self.cfg_task.fixed_asset_cfg.medium_gear_base_offset[0]
+
 
         _, fixed_tip_pos = torch_utils.tf_combine(
-            self.fixed_quat,
-            self.fixed_pos,
-            torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1),
+            self.fixed_quat[env_ids],
+            self.fixed_pos[env_ids],
+            torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(len(env_ids), 1),
             fixed_tip_pos_local,
         )
-        self.fixed_pos_obs_frame[:] = fixed_tip_pos
-
-        lighter_joints = torch.zeros((self.num_envs, 2), device=self.device)
+        self.fixed_pos_obs_frame[env_ids] = fixed_tip_pos
+        # import pdb; pdb.set_trace()
+        lighter_joints = torch.zeros((len(env_ids), 2), device=self.device)
         lighter_joints[:, 0] = 0.00871
         lighter_joints[:, 1] = -1.57
         self._fixed_asset.write_joint_state_to_sim(lighter_joints, torch.zeros_like(lighter_joints), env_ids=env_ids)
@@ -1702,12 +1724,13 @@ class LighterEnv(DirectRLEnv):
         # (2) Move gripper to randomizes location above fixed asset. Keep trying until IK succeeds.
         # (a) get position vector to target
         bad_envs = env_ids.clone()
+
+        # bad_envs = torch.tensor(env_ids.cpu().numpy(), device=self.device)
         ik_attempt = 0
 
-        hand_down_quat = torch.zeros((self.num_envs, 4), dtype=torch.float32, device=self.device)
+        hand_down_quat = torch.zeros((len(env_ids), 4), dtype=torch.float32, device=self.device)
         while True:
             n_bad = bad_envs.shape[0]
-
             above_fixed_pos = fixed_tip_pos.clone()
             # above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
             above_fixed_pos[:, 1] += 0.03
@@ -1715,9 +1738,9 @@ class LighterEnv(DirectRLEnv):
             above_fixed_pos_rand = 0.2 * (rand_sample - 0.5)  # [-1, 1]
             hand_init_pos_rand = torch.tensor(self.cfg_task.hand_init_pos_noise, device=self.device)
             above_fixed_pos_rand = above_fixed_pos_rand @ torch.diag(hand_init_pos_rand)
-            above_fixed_pos[bad_envs] += above_fixed_pos_rand
-
+            above_fixed_pos += above_fixed_pos_rand
             # (b) get random orientation facing down
+            
             hand_down_euler = (
                 torch.tensor(self.cfg_task.hand_init_orn, device=self.device).unsqueeze(0).repeat(n_bad, 1)
             )
@@ -1727,9 +1750,10 @@ class LighterEnv(DirectRLEnv):
             hand_init_orn_rand = torch.tensor(self.cfg_task.hand_init_orn_noise, device=self.device)
             above_fixed_orn_noise = above_fixed_orn_noise @ torch.diag(hand_init_orn_rand)
             hand_down_euler += above_fixed_orn_noise
-            hand_down_quat[bad_envs, :] = torch_utils.quat_from_euler_xyz(
+            hand_down_quat[:] = torch_utils.quat_from_euler_xyz(
                 roll=hand_down_euler[:, 0], pitch=hand_down_euler[:, 1], yaw=hand_down_euler[:, 2]
             )
+
 
             # (c) iterative IK Method
             pos_error, aa_error = self.set_pos_inverse_kinematics(
@@ -1759,57 +1783,67 @@ class LighterEnv(DirectRLEnv):
 
         # (3) Randomize asset-in-gripper location.
         # flip gripper z orientation
-        flip_z_quat = torch.tensor([0.0, 0.0, 1.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1)
-        fingertip_flipped_quat, fingertip_flipped_pos = torch_utils.tf_combine(
-            q1=self.fingertip_midpoint_quat,
-            t1=self.fingertip_midpoint_pos,
-            q2=flip_z_quat,
-            t2=torch.zeros((self.num_envs, 3), device=self.device),
-        )
+        # flip_z_quat = torch.tensor([0.0, 0.0, 1.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1)
+        # fingertip_flipped_quat, fingertip_flipped_pos = torch_utils.tf_combine(
+        #     q1=self.fingertip_midpoint_quat,
+        #     t1=self.fingertip_midpoint_pos,
+        #     q2=flip_z_quat,
+        #     t2=torch.zeros((self.num_envs, 3), device=self.device),
+        # )
 
-        # get default gripper in asset transform
-        held_asset_relative_pos, held_asset_relative_quat = self.get_handheld_asset_relative_pose()
-        asset_in_hand_quat, asset_in_hand_pos = torch_utils.tf_inverse(
-            held_asset_relative_quat, held_asset_relative_pos
-        )
+        # # get default gripper in asset transform
+        # held_asset_relative_pos, held_asset_relative_quat = self.get_handheld_asset_relative_pose()
+        # asset_in_hand_quat, asset_in_hand_pos = torch_utils.tf_inverse(
+        #     held_asset_relative_quat, held_asset_relative_pos
+        # )
 
-        translated_held_asset_quat, translated_held_asset_pos = torch_utils.tf_combine(
-            q1=fingertip_flipped_quat, t1=fingertip_flipped_pos, q2=asset_in_hand_quat, t2=asset_in_hand_pos
-        )
+        # translated_held_asset_quat, translated_held_asset_pos = torch_utils.tf_combine(
+        #     q1=fingertip_flipped_quat, t1=fingertip_flipped_pos, q2=asset_in_hand_quat, t2=asset_in_hand_pos
+        # )
 
-        # Add asset in hand randomization
-        rand_sample = torch.rand((self.num_envs, 3), dtype=torch.float32, device=self.device)
-        held_asset_pos_noise = 2 * (rand_sample - 0.5)  # [-1, 1]
-        if self.cfg_task.name == "gear_mesh":
-            held_asset_pos_noise[:, 2] = -rand_sample[:, 2]  # [-1, 0]
+        # # Add asset in hand randomization
+        # rand_sample = torch.rand((self.num_envs, 3), dtype=torch.float32, device=self.device)
+        # held_asset_pos_noise = 2 * (rand_sample - 0.5)  # [-1, 1]
+        # if self.cfg_task.name == "gear_mesh":
+        #     held_asset_pos_noise[:, 2] = -rand_sample[:, 2]  # [-1, 0]
 
-        held_asset_pos_noise_level = torch.tensor(self.cfg_task.held_asset_pos_noise, device=self.device)
-        held_asset_pos_noise = held_asset_pos_noise @ torch.diag(held_asset_pos_noise_level)
-        translated_held_asset_quat, translated_held_asset_pos = torch_utils.tf_combine(
-            q1=translated_held_asset_quat,
-            t1=translated_held_asset_pos,
-            q2=torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1),
-            t2=held_asset_pos_noise,
-        )
+        # held_asset_pos_noise_level = torch.tensor(self.cfg_task.held_asset_pos_noise, device=self.device)
+        # held_asset_pos_noise = held_asset_pos_noise @ torch.diag(held_asset_pos_noise_level)
+        # translated_held_asset_quat, translated_held_asset_pos = torch_utils.tf_combine(
+        #     q1=translated_held_asset_quat,
+        #     t1=translated_held_asset_pos,
+        #     q2=torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1),
+        #     t2=held_asset_pos_noise,
+        # )
 
-        held_state = self._held_asset.data.default_root_state.clone()
-        held_state[:, 0:3] = translated_held_asset_pos + self.scene.env_origins
-        held_state[:, 2] = 1000
-        held_state[:, 3:7] = translated_held_asset_quat
-        held_state[:, 7:] = 0.0
-        self._held_asset.write_root_pose_to_sim(held_state[:, 0:7])
-        self._held_asset.write_root_velocity_to_sim(held_state[:, 7:])
-        self._held_asset.reset()
+        # held_state = self._held_asset.data.default_root_state.clone()
+        # held_state[:, 0:3] = translated_held_asset_pos + self.scene.env_origins
+        # held_state[:, 2] = 1000
+        # held_state[:, 3:7] = translated_held_asset_quat
+        # held_state[:, 7:] = 0.0
+        # self._held_asset.write_root_pose_to_sim(held_state[:, 0:7])
+        # self._held_asset.write_root_velocity_to_sim(held_state[:, 7:])
+        # self._held_asset.reset()
 
-        #  Close hand
-        # Set gains to use for quick resets.
-        reset_task_prop_gains = torch.tensor(self.cfg.ctrl.reset_task_prop_gains, device=self.device).repeat(
-            (self.num_envs, 1)
-        )
-        self.task_prop_gains = reset_task_prop_gains
-        self.task_deriv_gains = factory_utils.get_deriv_gains(
-            reset_task_prop_gains, self.cfg.ctrl.reset_rot_deriv_scale
-        )
+        # #  Close hand
+        # # Set gains to use for quick resets.
+        
+        # if no task_prop_gains this attribute , then set it to reset_task_prop_gains
+        if(not hasattr(self, 'task_prop_gains')):
+            self.task_prop_gains = torch.tensor(self.cfg.ctrl.reset_task_prop_gains, device=self.device).repeat(
+                (self.num_envs, 1)
+            )
+            self.task_deriv_gains = factory_utils.get_deriv_gains(
+                self.task_prop_gains, self.cfg.ctrl.reset_rot_deriv_scale
+            )
+        else:
+            reset_task_prop_gains = torch.tensor(self.cfg.ctrl.reset_task_prop_gains, device=self.device).repeat(
+                (len(env_ids), 1)
+            )
+            self.task_prop_gains[env_ids] = reset_task_prop_gains
+            self.task_deriv_gains[env_ids] = factory_utils.get_deriv_gains(
+                reset_task_prop_gains, self.cfg.ctrl.reset_rot_deriv_scale
+            )
 
         self.step_sim_no_action()
 
@@ -1820,20 +1854,23 @@ class LighterEnv(DirectRLEnv):
             self.step_sim_no_action()
             grasp_time += self.sim.get_physics_dt()
 
-        self.prev_joint_pos = self.joint_pos[:, 0:7].clone()
-        self.prev_fingertip_pos = self.fingertip_midpoint_pos.clone()
-        self.prev_fingertip_quat = self.fingertip_midpoint_quat.clone()
+        self.prev_joint_pos[env_ids] = self.joint_pos[env_ids, 0:7].clone()
+        self.prev_fingertip_pos[env_ids] = self.fingertip_midpoint_pos[env_ids].clone()
+        self.prev_fingertip_quat[env_ids] = self.fingertip_midpoint_quat[env_ids].clone()
 
         # Set initial actions to involve no-movement. Needed for EMA/correct penalties.
-        self.actions = torch.zeros_like(self.actions)
-        self.prev_actions = torch.zeros_like(self.actions)
+        self.actions[env_ids] = torch.zeros_like(self.actions[env_ids])
+        if(not hasattr(self, 'prev_actions')):
+            self.prev_actions = torch.zeros_like(self.actions)
+        else:
+            self.prev_actions[env_ids] = torch.zeros_like(self.actions[env_ids])
 
         # Zero initial velocity.
-        self.ee_angvel_fd[:, :] = 0.0
-        self.ee_linvel_fd[:, :] = 0.0
+        self.ee_angvel_fd[env_ids, :] = 0.0
+        self.ee_linvel_fd[env_ids, :] = 0.0
 
         # Set initial gains for the episode.
-        self.task_prop_gains = self.default_gains
-        self.task_deriv_gains = factory_utils.get_deriv_gains(self.default_gains)
+        self.task_prop_gains[env_ids] = self.default_gains[env_ids]
+        self.task_deriv_gains[env_ids] = factory_utils.get_deriv_gains(self.default_gains[env_ids])
 
         physics_sim_view.set_gravity(carb.Float3(*self.cfg.sim.gravity))

@@ -111,7 +111,8 @@ def get_pose_error(
 ):
     """Compute task-space error between target Franka fingertip pose and current pose."""
     # Reference: https://ethz.ch/content/dam/ethz/special-interest/mavt/robotics-n-intelligent-systems/rsl-dam/documents/RobotDynamics2018/RD_HS2018script.pdf
-
+    # if(fingertip_midpoint_quat.shape[0] < 15):
+    #     import pdb; pdb.set_trace()
     # Compute pos error
     pos_error = ctrl_target_fingertip_midpoint_pos - fingertip_midpoint_pos
 
@@ -125,12 +126,13 @@ def get_pose_error(
         ctrl_target_fingertip_midpoint_quat = torch.where(
             quat_dot.expand(-1, 4) >= 0, ctrl_target_fingertip_midpoint_quat, -ctrl_target_fingertip_midpoint_quat
         )
-
+        
         fingertip_midpoint_quat_norm = torch_utils.quat_mul(
             fingertip_midpoint_quat, torch_utils.quat_conjugate(fingertip_midpoint_quat)
         )[
             :, 0
         ]  # scalar component
+
         fingertip_midpoint_quat_inv = torch_utils.quat_conjugate(
             fingertip_midpoint_quat
         ) / fingertip_midpoint_quat_norm.unsqueeze(-1)

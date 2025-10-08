@@ -18,7 +18,7 @@ parser.add_argument("--num_envs", type=int, default=1, help="Number of environme
 parser.add_argument(
     "--teleop_device",
     type=str,
-    default="spacemouse",
+    default="keyboard",
     help="Device for interacting with environment. Examples: keyboard, spacemouse, gamepad, handtracking, manusvive",
 )
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
@@ -241,6 +241,7 @@ def main() -> None:
                     # process actions
                     actions = action.repeat(env.num_envs, 1)
                     # apply actions
+                    actions[:,1] = -1.0
                     actions = actions[:,0:6] * 20
                     # print(actions)
                     env.step(actions)
