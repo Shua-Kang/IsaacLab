@@ -67,3 +67,5 @@ tests/
 .isaac-lab-docker-history
 
 outputs/
+logs/
+log_text/
