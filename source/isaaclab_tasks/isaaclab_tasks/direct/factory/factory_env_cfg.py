@@ -15,7 +15,7 @@ from isaaclab.sensors import CameraCfg
 from .factory_tasks_cfg import ASSET_DIR, FactoryTask, GearMesh, NutThread, PegInsert, LighterTaskCfg
 import os
 from isaaclab.sensors import TiledCamera, TiledCameraCfg, save_images_to_file
-
+from isaaclab.sensors.contact_sensor import ContactSensorCfg
 
 OBS_DIM_CFG = {
     "fingertip_pos": 3,
@@ -408,6 +408,17 @@ class LighterEnvCfg(DirectRLEnvCfg):
                 armature=0.0,
             ),
         },
+    )
+
+    # elastomer_contact: ContactSensorCfg = ContactSensorCfg(
+    #     prim_path="/World/envs/env_.*/Robot/franka_bak/elastomer_right",
+    #     filter_prim_paths_expr=["/World/envs/env_.*/lighter/link_2"],
+    #     history_length=3,
+    # )
+    elastomer_contact: ContactSensorCfg = ContactSensorCfg(
+        prim_path="/World/envs/env_.*/Robot/franka_bak/elastomer_right",
+        filter_prim_paths_expr=["/World/envs/env_.*/lighter/link_2"],
+        history_length=3,
     )
     # gripper_camera : CameraCfg = CameraCfg(
     #     prim_path="/World/envs/env_0/Robot/panda_hand/Camera/gripper_camera",

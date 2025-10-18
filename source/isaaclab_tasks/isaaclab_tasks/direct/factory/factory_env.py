@@ -1542,7 +1542,7 @@ class FactoryEnv(DirectRLEnv):
         self._compute_intermediate_values(dt=self.physics_dt)
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.log_img_save_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "..")
-        self.tactile_system = TactileSystem(self)
+        # self.tactile_system = TactileSystem(self)
 
     def _set_body_inertias(self):
         """Note: this is to account for the asset_options.armature parameter in IGE."""
@@ -1658,6 +1658,7 @@ class FactoryEnv(DirectRLEnv):
         # return
         # self.nominal_depth = self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].clone()
         # import pdb; pdb.set_trace()
+        return
         for i in range(self.scene.num_envs):
             # 定义左右两个手指的 碰撞体 Prim 的路径
             paths_to_modify = [
@@ -1821,7 +1822,7 @@ class FactoryEnv(DirectRLEnv):
         # lift_action = torch.tensor([[0,0,1.0,0,0,0]], device=self.device)
         # down_action = torch.tensor([[0,0,-1.0,0,0,0]], device=self.device)
         # self.actions = lift_action
-        tactile_data = self.tactile_system.update()
+        # tactile_data = self.tactile_system.update()
 
     def close_gripper_in_place(self):
         """Keep gripper in current position as gripper closes."""

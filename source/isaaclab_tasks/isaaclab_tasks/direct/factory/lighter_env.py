@@ -30,7 +30,7 @@ from isaaclab.sensors import TiledCamera, Camera
 import torchvision
 import numpy as np
 import cv2
-
+from isaaclab.sensors.contact_sensor import ContactSensor
 import time
 
 import warp as wp
@@ -939,6 +939,7 @@ class LighterEnv(DirectRLEnv):
         self.log_text_save_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "log_text")
         os.makedirs(self.log_text_save_path, exist_ok=True)
         # self.tactile_system = TactileSensingSystem(self)
+        
 
     def _set_body_inertias(self):
         """Note: this is to account for the asset_options.armature parameter in IGE."""
@@ -998,7 +999,7 @@ class LighterEnv(DirectRLEnv):
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg(), translation=(0.0, 0.0, -1.05))
 
         # spawn a usd file of a table into the scene
-        cfg = sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd")
+        cfg = sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table.usd")
         cfg.func(
             "/World/envs/env_.*/Table", cfg, translation=(0.55, 0.0, 0.0), orientation=(0.70711, 0.0, 0.0, 0.70711)
         )
@@ -1009,8 +1010,11 @@ class LighterEnv(DirectRLEnv):
         if self.cfg_task.name == "gear_mesh":
             self._small_gear_asset = Articulation(self.cfg_task.small_gear_cfg)
             self._large_gear_asset = Articulation(self.cfg_task.large_gear_cfg)
-
+        
+        
         self.scene.clone_environments(copy_from_source=False)
+        self.sim.step()
+        self._elastomer_contact_sensor = ContactSensor(cfg=self.cfg.elastomer_contact)
         if self.device == "cpu":
             # we need to explicitly filter collisions for CPU simulation
             self.scene.filter_collisions()
@@ -1021,7 +1025,8 @@ class LighterEnv(DirectRLEnv):
         if self.cfg_task.name == "gear_mesh":
             self.scene.articulations["small_gear"] = self._small_gear_asset
             self.scene.articulations["large_gear"] = self._large_gear_asset
-
+        
+        self.scene.sensors["elastomer_contact_sensor"] = self._elastomer_contact_sensor
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
@@ -1048,6 +1053,8 @@ class LighterEnv(DirectRLEnv):
         # --- 步骤 2: 将新材质应用到每个环境的机器人手指上 ---
         
         self.sim.step() # 确保材质和机器人 Prim 都已加载
+        # import pdb; pdb.set_trace()
+        
 
         # self._gripper_camera = Camera(self.cfg.gripper_camera)
         # self.scene.sensors["gripper_camera"] = self._gripper_camera
@@ -1230,7 +1237,7 @@ class LighterEnv(DirectRLEnv):
         # down_action = torch.tensor([[0,0,-1.0,0,0,0]], device=self.device)
         # self.actions = lift_action
         # tactile_data = self.tactile_system.update()
-
+        
     def close_gripper_in_place(self):
         """Keep gripper in current position as gripper closes."""
         actions = torch.zeros((self.num_envs, 6), device=self.device)
@@ -1408,8 +1415,8 @@ class LighterEnv(DirectRLEnv):
             f.write(f"terminated: {sum(terminated)}\n")
             f.write(f"truncated: {sum(truncated)}\n")
             f.write(f"time: {time.time()}\n")
-        return terminated, truncated
-        # return time_out, time_out
+        # return terminated, truncated
+        return time_out, time_out
 
     def _get_curr_successes(self, success_threshold, check_rot=False):
         """Get success mask at current timestep."""
@@ -1442,17 +1449,20 @@ class LighterEnv(DirectRLEnv):
     def _get_rewards(self):
         """Update rewards and compute success statistics."""
         # Get successful and failed envs at current timestep
-        
+        if_contact = torch.sum(self.scene["elastomer_contact_sensor"].data.net_forces_w, dim = [1,2]) != 0
         if self.last_time_joints is not None:
             lighter_joints = self._fixed_asset.data.joint_pos[:,1]
             rewards = torch.zeros((self.num_envs,), device=self.device)
             rewards = lighter_joints - self.last_time_joints
+            
+            # rewards[(self._fixed_asset.data.root_pos_w[:,2] < 0.03) & (self._fixed_asset.data.root_pos_w[:,2] > 0.01)] = -0.001
+            # rewards[self._fixed_asset.data.root_pos_w[:,2] < 0.01] = 0
             with open(os.path.join(self.log_text_save_path, "rewards.txt"), "a") as f:
                 f.write(f"rewards: {rewards.mean()}\n")
                 f.write(f"time: {time.time()}\n")
-            # rewards[(self._fixed_asset.data.root_pos_w[:,2] < 0.03) & (self._fixed_asset.data.root_pos_w[:,2] > 0.01)] = -0.001
-            # rewards[self._fixed_asset.data.root_pos_w[:,2] < 0.01] = 0
             # import pdb; pdb.set_trace()
+
+        rewards = rewards * if_contact + 0.0001 * if_contact
         # import pdb; pdb.set_trace()
         return rewards
 
@@ -1746,7 +1756,7 @@ class LighterEnv(DirectRLEnv):
             n_bad = bad_envs.shape[0]
             above_fixed_pos = fixed_tip_pos.clone()
             # above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
-            above_fixed_pos[:, 1] += 0.03
+            above_fixed_pos[:, 1] += 0.02
             rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
             above_fixed_pos_rand = 0.2 * (rand_sample - 0.5)  # [-1, 1]
             hand_init_pos_rand = torch.tensor(self.cfg_task.hand_init_pos_noise, device=self.device)
@@ -1783,9 +1793,9 @@ class LighterEnv(DirectRLEnv):
             if bad_envs.shape[0] == 0:
                 break
 
-            self._set_franka_to_default_pose(
-                joints=[0.00871, -0.10368, -0.00794, -1.49139, -0.00083, 1.38774, 0.04], env_ids=bad_envs
-            )
+            # self._set_franka_to_default_pose(
+            #     joints=[0.00871, -0.10368, -0.00794, -1.49139, -0.00083, 1.38774, 0.04], env_ids=bad_envs
+            # )
 
             ik_attempt += 1
             break

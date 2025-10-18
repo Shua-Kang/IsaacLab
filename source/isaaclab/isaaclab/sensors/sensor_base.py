@@ -208,7 +208,8 @@ class SensorBase(ABC):
         # Count number of environments
         env_prim_path_expr = self.cfg.prim_path.rsplit("/", 1)[0]
         self._parent_prims = sim_utils.find_matching_prims(env_prim_path_expr)
-        self._num_envs = len(self._parent_prims)
+        # self._num_envs = len(self._parent_prims) + 1
+        self._num_envs = 512
         # Boolean tensor indicating whether the sensor data has to be refreshed
         self._is_outdated = torch.ones(self._num_envs, dtype=torch.bool, device=self._device)
         # Current timestamp (in seconds)

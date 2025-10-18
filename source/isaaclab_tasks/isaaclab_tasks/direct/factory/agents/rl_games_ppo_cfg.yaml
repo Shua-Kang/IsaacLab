@@ -46,13 +46,13 @@ params:
       concat_input: True
       layer_norm: True
 
-  load_checkpoint: False
-  load_path: ""
+  load_checkpoint: True
+  load_path: r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\logs\rl_games\Factory\test\nn\last_Factory_ep_100_rew_0.22156249.pth"
 
   config:
     name: Factory
     device: cuda:0
-    full_experiment_name: test
+    full_experiment_name: test_negative_reward
     env_name: rlgpu
     multi_gpu: False
     ppo: True
