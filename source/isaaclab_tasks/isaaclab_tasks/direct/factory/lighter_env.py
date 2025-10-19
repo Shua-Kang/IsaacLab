@@ -1461,8 +1461,8 @@ class LighterEnv(DirectRLEnv):
                 f.write(f"rewards: {rewards.mean()}\n")
                 f.write(f"time: {time.time()}\n")
             # import pdb; pdb.set_trace()
-
-        rewards = rewards * if_contact + 0.0001 * if_contact
+        positive_rewards = rewards > 0
+        rewards = rewards * (if_contact & positive_rewards) + 0.0001 * if_contact
         # import pdb; pdb.set_trace()
         return rewards
 
