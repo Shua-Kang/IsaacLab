@@ -92,10 +92,11 @@ class TactileSensingSystem:
         self.tactile_mu = 2.0    # 动摩擦系数 (无单位), 新增参数
         self.tactile_kd = 10.0
         
-        
-        # self.depth_camera = TiledCamera(self.env.cfg.TACTILE_CAMERA_CFG)
-        # self.env.scene.sensors["tactile_camera"] = self.depth_camera
-        # self.env.scene.add_camera("tactile_camera", self.env.cfg.TACTILE_CAMERA_CFG)
+        # self.enable_tactile_camera = enable_tactile_camera
+        # if self.enable_tactile_camera:
+        #     self.depth_camera = TiledCamera(self.env.cfg.TACTILE_CAMERA_CFG)
+        #     self.env.scene.sensors["tactile_camera"] = self.depth_camera
+        #     self.env.scene.add_camera("tactile_camera", self.env.cfg.TACTILE_CAMERA_CFG)
         
 
     def _load_mesh_from_file(self, file_path: str) -> trimesh.Trimesh | None:
@@ -897,17 +898,21 @@ class TactileSensingSystem:
         
         debug = False
         if debug:
-            current_tactile_image = self.env.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3)
-            torchvision.utils.save_image( (current_tactile_image - current_tactile_image.min()) / (current_tactile_image.max() - current_tactile_image.min()), os.path.join(self.env.log_img_save_path, "tactile_depth_image.png" ) )
-            torchvision.utils.save_image(self.env.scene.sensors["tactile_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "tactile_rgb_image.png" ) )
+            if self.env.enable_tactile_camera:
+                current_tactile_image = self.env.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3)
+                torchvision.utils.save_image( (current_tactile_image - current_tactile_image.min()) / (current_tactile_image.max() - current_tactile_image.min()), os.path.join(self.env.log_img_save_path, "tactile_depth_image.png" ) )
+                torchvision.utils.save_image(self.env.scene.sensors["tactile_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "tactile_rgb_image.png" ) )
+                tactile_depth_image = current_tactile_image - self.env.initial_tactile_image
+                tactile_depth_image = (tactile_depth_image - tactile_depth_image.min()) / (tactile_depth_image.max() - tactile_depth_image.min())
+                # import pdb; pdb.set_trace()
+                torchvision.utils.save_image(tactile_depth_image, os.path.join(self.env.log_img_save_path, "tactile_depth_image_diff.png" ) )
+            if self.env.enable_gripper_camera:
+                torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "gripper_image.png" ) )
+                torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.env.log_img_save_path, "gripper_depth_image.png" ) )
+            if self.env.enable_global_camera:
+                torchvision.utils.save_image(self.env.scene.sensors["global_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "global_image.png" ) )
+                torchvision.utils.save_image(self.env.scene.sensors["global_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.env.log_img_save_path, "global_depth_image.png" ) )
             
-            torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "gripper_image.png" ) )
-            torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.env.log_img_save_path, "gripper_depth_image.png" ) )
-
-            tactile_depth_image = current_tactile_image - self.env.initial_tactile_image
-            tactile_depth_image = (tactile_depth_image - tactile_depth_image.min()) / (tactile_depth_image.max() - tactile_depth_image.min())
-            # import pdb; pdb.set_trace()
-            torchvision.utils.save_image(tactile_depth_image, os.path.join(self.env.log_img_save_path, "tactile_depth_image_diff.png" ) )
 
         self.calculate_normal_shear_force()
 
@@ -928,6 +933,9 @@ class LighterEnv(DirectRLEnv):
         self.cfg_task = cfg.task
         self.initial_tactile_image = None
         self.last_time_joints = None
+        self.enable_global_camera = True
+        self.enable_gripper_camera = False
+        self.enable_tactile_camera = False
         super().__init__(cfg, render_mode, **kwargs)
         self.tactile_image_scale = 35
         factory_utils.set_body_inertias(self._robot, self.scene.num_envs)
@@ -943,8 +951,12 @@ class LighterEnv(DirectRLEnv):
             os.makedirs(self.log_text_save_path, exist_ok=True)
         if self.log_img:
             os.makedirs(self.log_img_save_path, exist_ok=True)
+
+        
         # self.tactile_system = TactileSensingSystem(self)
         self.accumlated_rewards = torch.zeros((self.num_envs,), device=self.device)
+
+        
 
     def _set_body_inertias(self):
         """Note: this is to account for the asset_options.armature parameter in IGE."""
@@ -1015,9 +1027,17 @@ class LighterEnv(DirectRLEnv):
         if self.cfg_task.name == "gear_mesh":
             self._small_gear_asset = Articulation(self.cfg_task.small_gear_cfg)
             self._large_gear_asset = Articulation(self.cfg_task.large_gear_cfg)
+        if self.enable_gripper_camera:
+            self._gripper_camera = TiledCamera(self.cfg.gripper_camera)
+            
+        if self.enable_global_camera:
+            self._global_camera = TiledCamera(self.cfg.global_camera)
+
+        if self.enable_tactile_camera:
+            self._tactile_camera = TiledCamera(self.cfg.tactile_camera)
+
         
-        
-        self.scene.clone_environments(copy_from_source=False)
+        self.scene.clone_environments(copy_from_source=True)
         self.sim.step()
         self._elastomer_contact_sensor = ContactSensor(cfg=self.cfg.elastomer_contact)
         if self.device == "cpu":
@@ -1032,6 +1052,14 @@ class LighterEnv(DirectRLEnv):
             self.scene.articulations["large_gear"] = self._large_gear_asset
         
         self.scene.sensors["elastomer_contact_sensor"] = self._elastomer_contact_sensor
+        if self.enable_gripper_camera:
+            self.scene.sensors["gripper_camera"] = self._gripper_camera
+            
+        if self.enable_global_camera:
+            self.scene.sensors["global_camera"] = self._global_camera
+
+        if self.enable_tactile_camera:
+            self.scene.sensors["tactile_camera"] = self._tactile_camera
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
@@ -1059,13 +1087,7 @@ class LighterEnv(DirectRLEnv):
         
         self.sim.step() # 确保材质和机器人 Prim 都已加载
         # import pdb; pdb.set_trace()
-        
 
-        # self._gripper_camera = Camera(self.cfg.gripper_camera)
-        # self.scene.sensors["gripper_camera"] = self._gripper_camera
-
-        # self._tactile_camera = Camera(self.cfg.tactile_camera)
-        # self.scene.sensors["tactile_camera"] = self._tactile_camera
 
         
 
@@ -1215,6 +1237,16 @@ class LighterEnv(DirectRLEnv):
         obs_dict, state_dict = self._get_factory_obs_state_dict()
         obs_tensors = factory_utils.collapse_obs_dict(obs_dict, self.cfg.obs_order + ["prev_actions"])
         state_tensors = factory_utils.collapse_obs_dict(state_dict, self.cfg.state_order + ["prev_actions"])
+        debug = False
+
+        if debug:
+            if self.enable_gripper_camera:
+                torchvision.utils.save_image(self.scene.sensors["gripper_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.log_img_save_path, "gripper_image.png" ) )
+            if self.enable_global_camera:
+                torchvision.utils.save_image(self.scene.sensors["global_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.log_img_save_path, "global_image.png" ) )
+            if self.enable_tactile_camera:
+                torchvision.utils.save_image(self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.log_img_save_path, "tactile_depth_image.png" ) )
+
         return {"policy": obs_tensors, "critic": state_tensors}
 
     def _reset_buffers(self, env_ids):
@@ -1470,7 +1502,7 @@ class LighterEnv(DirectRLEnv):
                     f.write(f"time: {time.time()}\n")
             # import pdb; pdb.set_trace()
         positive_rewards = rewards > 0
-        rewards = rewards * (if_contact & positive_rewards) + 1.01 * rewards * (positive_rewards == False) + 0.0001 * if_contact 
+        rewards = rewards * (if_contact & positive_rewards) + 1.00 * rewards * (positive_rewards == False) + 0.0001 * if_contact 
         # import pdb; pdb.set_trace()
         self.accumlated_rewards += rewards
         return rewards
@@ -1906,3 +1938,20 @@ class LighterEnv(DirectRLEnv):
         self.task_deriv_gains[env_ids] = factory_utils.get_deriv_gains(self.default_gains[env_ids])
 
         physics_sim_view.set_gravity(carb.Float3(*self.cfg.sim.gravity))
+    
+    def render(self, mode = "rgb_array"):
+        if self.enable_global_camera:
+            rgb_all = self.scene.sensors["global_camera"].data.output["rgb"][0:2]  # uint8 tensor, shape [N, H, W, 3]
+            rgb_0 = rgb_all[0]
+            rgb_1 = rgb_all[1]
+            from PIL import Image
+            
+            rgb_concat = torch.cat([rgb_0, rgb_1], dim=0)
+            if rgb_concat.dtype != torch.uint8:
+                rgb_concat = (rgb_concat.clamp(0, 255).byte())
+            rgb_array = rgb_concat.cpu().numpy()
+
+            # Image.fromarray(rgb_array).save(os.path.join(self.log_img_save_path, "global_image.png"))
+            # import pdb; pdb.set_trace()
+            return rgb_array
+                        

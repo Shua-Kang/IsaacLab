@@ -46,8 +46,8 @@ params:
       concat_input: True
       layer_norm: True
 
-  load_checkpoint: True
-  load_path: r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\logs\rl_games\Factory\test\nn\last_Factory_ep_100_rew_0.22156249.pth"
+  load_checkpoint: False
+  load_path: ""
 
   config:
     name: Factory
@@ -60,7 +60,8 @@ params:
     normalize_input: True
     normalize_value: True
     value_bootstrap: True
-    num_actors: 128
+    # num_actors: 128
+    num_actors: 256
     reward_shaper:
       scale_value: 1.0
     normalize_advantage: True
@@ -76,7 +77,7 @@ params:
     save_frequency: 100
     print_stats: True
     grad_norm: 1.0
-    entropy_coef: 0.0  # 0.0001  # 0.0
+    entropy_coef: 0.001  # 0.0001  # 0.0
     truncate_grads: True
     e_clip: 0.2
     horizon_length: 128

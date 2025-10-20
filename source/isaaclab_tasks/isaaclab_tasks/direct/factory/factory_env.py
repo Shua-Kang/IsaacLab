@@ -1062,7 +1062,7 @@ class TactileSystem:
         self.sim = env.sim
         self.cfg = env.cfg
         self.device = env.device
-        self.num_envs = 1
+        # self.num_envs = 1
         # 创建立方体和球体
         # self._create_objects()
         current_dir = os.path.dirname(os.path.abspath(__file__))

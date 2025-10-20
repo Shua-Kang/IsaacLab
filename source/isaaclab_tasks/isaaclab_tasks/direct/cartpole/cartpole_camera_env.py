@@ -118,6 +118,10 @@ class CartpoleCameraEnv(DirectRLEnv):
 
     def _setup_scene(self):
         """Setup the scene with the cartpole and camera."""
+        from isaaclab.sim.spawners.from_files import GroundPlaneCfg, spawn_ground_plane
+
+        spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg(), translation=(0.0, 0.0, -1.05))
+
         self._cartpole = Articulation(self.cfg.robot_cfg)
         self._tiled_camera = TiledCamera(self.cfg.tiled_camera)
 

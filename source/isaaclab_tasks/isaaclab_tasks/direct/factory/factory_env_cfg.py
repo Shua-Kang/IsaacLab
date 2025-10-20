@@ -6,7 +6,7 @@
 import isaaclab.sim as sim_utils
 from isaaclab.actuators.actuator_cfg import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
-from isaaclab.envs import DirectRLEnvCfg
+from isaaclab.envs import DirectRLEnvCfg, ViewerCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sim import PhysxCfg, SimulationCfg
 from isaaclab.sim.spawners.materials.physics_materials_cfg import RigidBodyMaterialCfg
@@ -136,7 +136,7 @@ class FactoryEnvCfg(DirectRLEnvCfg):
         ),
     )
 
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=128, env_spacing=2.0)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=512, env_spacing=2.0,replicate_physics = True)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     usd_path_raw = os.path.join(
         current_dir,
@@ -152,7 +152,7 @@ class FactoryEnvCfg(DirectRLEnvCfg):
     #usd_path_raw = r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\my_assets_new\franka_tacsl_correct\franka.usd"
     # usd_path_raw = r"/p/langdiffuse/isaac_lab_xh/IsaacLab/my_assets_new/franka_tacsl_correct/franka.usd"
     robot_usd_path = os.path.normpath(usd_path_raw).replace("\\", "/")
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=128, env_spacing=2.0, clone_in_fabric=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=512, env_spacing=2.0, clone_in_fabric=True)
 
     robot = ArticulationCfg(
         prim_path="/World/envs/env_.*/Robot",
@@ -298,8 +298,9 @@ class LighterEnvCfg(DirectRLEnvCfg):
     task: LighterTaskCfg = LighterTaskCfg()
     obs_rand: ObsRandCfg = ObsRandCfg()
     ctrl: CtrlCfg = CtrlCfg()
-
+    viewer = ViewerCfg(eye=(20.0, 20.0, 20.0))
     sim: SimulationCfg = SimulationCfg(
+        render_interval=8,
         device="cuda:0",
         dt=1 / 120,
         gravity=(0.0, 0.0, -9.81),
@@ -319,9 +320,10 @@ class LighterEnvCfg(DirectRLEnvCfg):
             static_friction=1.0,
             dynamic_friction=1.0,
         ),
+
     )
 
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=128, env_spacing=2.0, clone_in_fabric=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=512, env_spacing=2.0, clone_in_fabric=False , replicate_physics = True)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     usd_path_raw = os.path.join(
         current_dir,
@@ -420,44 +422,65 @@ class LighterEnvCfg(DirectRLEnvCfg):
         filter_prim_paths_expr=["/World/envs/env_.*/lighter/link_2"],
         history_length=3,
     )
-    # gripper_camera : CameraCfg = CameraCfg(
-    #     prim_path="/World/envs/env_0/Robot/panda_hand/Camera/gripper_camera",
-    #     update_period=0.0,
-    #     height=320,
-    #     width=240,
-    #     data_types=["rgb", "distance_to_image_plane"],  # 等效于 'depth'
-    #     depth_clipping_behavior="none",  # (near_plane, far_plane)
-    #     # offset=CameraCfg.OffsetCfg(
-    #     #     pos=(0.0, 0.0, -0.02034),  # camera_dist
-    #     #     rot=(0.0, 0.707, 0.707, 0.0),  # 将欧拉角 [pi/2, -pi/2, 0] 转换为四元数
-    #     # ),
-    #     offset=CameraCfg.OffsetCfg(
-    #             pos=(0.13, 0.0, -0.15), rot=(0.7061377, -0.0370072, -0.0370072, 0.7061377), convention="ros"
-    #             # pos=(0.13, 0.0, -0.15), rot=(0.247404, 0, 0, 0.9689124), convention="ros"
-    #         ),
-    #     spawn=sim_utils.PinholeCameraCfg(),
-    #     debug_vis=True,
-    #     update_latest_camera_pose = True
-    # )
+    gripper_camera : TiledCameraCfg = TiledCameraCfg(
+        prim_path="/World/envs/env_.*/Robot/franka_bak/panda_hand/Camera/gripper_camera",
+        update_period=0.0,
+        height=224,
+        width=224,
+        data_types=["rgb"],  # 等效于 'depth'
+        depth_clipping_behavior="none",  # (near_plane, far_plane)
+        # offset=CameraCfg.OffsetCfg(
+        #     pos=(0.0, 0.0, -0.02034),  # camera_dist
+        #     rot=(0.0, 0.707, 0.707, 0.0),  # 将欧拉角 [pi/2, -pi/2, 0] 转换为四元数
+        # ),
+        offset=CameraCfg.OffsetCfg(
+                pos=(0.13, 0.0, -0.15), rot=(0.7061377, -0.0370072, -0.0370072, 0.7061377), convention="ros"
+                # pos=(0.13, 0.0, -0.15), rot=(0.247404, 0, 0, 0.9689124), convention="ros"
+            ),
+        spawn=sim_utils.PinholeCameraCfg(),
+        debug_vis=True,
+        update_latest_camera_pose = True
+    )
 
-    # tactile_camera : CameraCfg = CameraCfg(
-    #     prim_path="/World/envs/env_0/Robot/elastomer_tip_right/Camera/tactile_camera",
-    #     update_period=0.0,
-    #     height=320,
-    #     width=240,
-    #     data_types=["rgb", "distance_to_image_plane"],  # 等效于 'depth'
-    #     depth_clipping_behavior="zero",  # (near_plane, far_plane)
-    #     offset=CameraCfg.OffsetCfg(
-    #         pos=(0.0, 0.0, -0.020342857142857145), rot=(0, 0, 0, 1), convention="ros"
-    #         # pos=(0.0, 0.0, -0.021), rot=(0, 0, 0, 1), convention="ros"
-    #     ),
-    #     # offset=CameraCfg.OffsetCfg(
-    #     #         pos=(0.13, 0.0, -0.15), rot=(-0.70614, 0.03701, 0.03701, -0.70614), convention="ros"
-    #     #     ),
-    #     spawn=sim_utils.PinholeCameraCfg(),
-    #     debug_vis=True,
-    #     update_latest_camera_pose = True
-    # )
+    tactile_camera : TiledCameraCfg = TiledCameraCfg(
+        prim_path="/World/envs/env_.*/Robot/franka_bak/elastomer_tip_right/Camera/tactile_camera",
+        update_period=0.0,
+        height=320,
+        width=240,
+        data_types=["distance_to_image_plane"],  # 等效于 'depth'
+        depth_clipping_behavior="zero",  # (near_plane, far_plane)
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.0, 0.0, -0.020342857142857145), rot=(0, 0, 0, 1), convention="ros"
+            # pos=(0.0, 0.0, -0.021), rot=(0, 0, 0, 1), convention="ros"
+        ),
+        # offset=CameraCfg.OffsetCfg(
+        #         pos=(0.13, 0.0, -0.15), rot=(-0.70614, 0.03701, 0.03701, -0.70614), convention="ros"
+        #     ),
+        spawn=sim_utils.PinholeCameraCfg(),
+        debug_vis=True,
+        update_latest_camera_pose = True
+    )
+
+    global_camera: TiledCameraCfg = TiledCameraCfg(
+        # 注意：不挂在 Robot 下，而是挂在每个 env 自己的 Cameras 目录
+        prim_path="/World/envs/env_.*/Robot/franka_bak/Camera/global_camera",
+        update_period=0.2,
+        height=200,
+        width=300,
+        data_types=["rgb", "distance_to_image_plane"],  # 深度同等价
+        depth_clipping_behavior="none",
+        offset=CameraCfg.OffsetCfg(
+            pos=(1.2, -0.5, 0.5),
+            # rot=( 0.73254,0.46194, 0.19134, 0.46194),
+            rot=(-0.46194, 0.73254, 0.46194, -0.19134),
+            convention="ros",
+        ),
+        spawn=sim_utils.PinholeCameraCfg(),
+        debug_vis=True,
+        # 设为 False：不去“更新到最新的跟随姿态”，确保纯静止
+        update_latest_camera_pose=False,
+    )
+
     
 @configclass
 class TerminationsCfg:
