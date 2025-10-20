@@ -517,7 +517,7 @@ class LighterTaskCfg(FactoryTask):
                 enabled_self_collisions=False,
                 solver_position_iteration_count=192,
                 solver_velocity_iteration_count=1,
-                fix_root_link=True,
+                fix_root_link=False,
             )
         ),
         init_state=ArticulationCfg.InitialStateCfg(

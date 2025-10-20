@@ -934,12 +934,17 @@ class LighterEnv(DirectRLEnv):
         self._init_tensors()
         self._set_default_dynamics_parameters()
         self._compute_intermediate_values(dt=self.physics_dt)
+        self.log_text = False
+        self.log_img = False
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.log_img_save_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "..")
         self.log_text_save_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "log_text")
-        os.makedirs(self.log_text_save_path, exist_ok=True)
+        if self.log_text:
+            os.makedirs(self.log_text_save_path, exist_ok=True)
+        if self.log_img:
+            os.makedirs(self.log_img_save_path, exist_ok=True)
         # self.tactile_system = TactileSensingSystem(self)
-        
+        self.accumlated_rewards = torch.zeros((self.num_envs,), device=self.device)
 
     def _set_body_inertias(self):
         """Note: this is to account for the asset_options.armature parameter in IGE."""
@@ -1401,9 +1406,10 @@ class LighterEnv(DirectRLEnv):
         """
         self._compute_intermediate_values(dt=self.physics_dt)
         # write the legnth buf and max to a log file. Also the time
-        with open(os.path.join(self.log_text_save_path, "length.txt"), "a") as f:
-            f.write(f"length: {self.episode_length_buf}, max: {self.max_episode_length}\n")
-            f.write(f"time: {time.time()}\n")
+        if self.log_text:
+            with open(os.path.join(self.log_text_save_path, "length.txt"), "a") as f:
+                f.write(f"length: {self.episode_length_buf}, max: {self.max_episode_length}\n")
+                f.write(f"time: {time.time()}\n")
         # print("length", self.episode_length_buf, self.max_episode_length)
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         out_of_bounds = self.fixed_pos[:, 2] < 0.02
@@ -1411,10 +1417,11 @@ class LighterEnv(DirectRLEnv):
 
         terminated = torch.logical_or(out_of_bounds, task_done)
         truncated = time_out
-        with open(os.path.join(self.log_text_save_path, "terminated.txt"), "a") as f:
-            f.write(f"terminated: {sum(terminated)}\n")
-            f.write(f"truncated: {sum(truncated)}\n")
-            f.write(f"time: {time.time()}\n")
+        if self.log_text:
+            with open(os.path.join(self.log_text_save_path, "terminated.txt"), "a") as f:
+                f.write(f"terminated: {sum(terminated)}\n")
+                f.write(f"truncated: {sum(truncated)}\n")
+                f.write(f"time: {time.time()}\n")
         # return terminated, truncated
         return time_out, time_out
 
@@ -1457,13 +1464,15 @@ class LighterEnv(DirectRLEnv):
             
             # rewards[(self._fixed_asset.data.root_pos_w[:,2] < 0.03) & (self._fixed_asset.data.root_pos_w[:,2] > 0.01)] = -0.001
             # rewards[self._fixed_asset.data.root_pos_w[:,2] < 0.01] = 0
-            with open(os.path.join(self.log_text_save_path, "rewards.txt"), "a") as f:
-                f.write(f"rewards: {rewards.mean()}\n")
-                f.write(f"time: {time.time()}\n")
+            if self.log_text:
+                with open(os.path.join(self.log_text_save_path, "rewards.txt"), "a") as f:
+                    f.write(f"rewards: {rewards.mean()}\n")
+                    f.write(f"time: {time.time()}\n")
             # import pdb; pdb.set_trace()
         positive_rewards = rewards > 0
-        rewards = rewards * (if_contact & positive_rewards) + 1.01 * rewards * ((if_contact == False) & (positive_rewards == False)) + 0.0001 * if_contact
+        rewards = rewards * (if_contact & positive_rewards) + 1.01 * rewards * (positive_rewards == False) + 0.0001 * if_contact 
         # import pdb; pdb.set_trace()
+        self.accumlated_rewards += rewards
         return rewards
 
     # def _get_factory_rew_dict(self, curr_successes):
@@ -1560,7 +1569,7 @@ class LighterEnv(DirectRLEnv):
         self.step_sim_no_action()
 
         self.randomize_initial_state(env_ids)
-
+        self.accumlated_rewards[env_ids] = 0
     def _set_assets_to_default_pose(self, env_ids):
         """Move assets to default pose before randomization."""
         held_state = self._held_asset.data.default_root_state.clone()[env_ids]

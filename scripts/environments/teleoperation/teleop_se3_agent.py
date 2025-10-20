@@ -246,7 +246,7 @@ def main() -> None:
                     actions = actions[:,0:6] * 20
                     # print(actions)
                     env.step(actions)
-                    print("Reward", env.step(actions)[1].item())
+                    # print("Reward", env.step(actions)[1].item())
                 else:
                     env.sim.render()
 
