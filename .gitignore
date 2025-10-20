@@ -69,3 +69,5 @@ tests/
 outputs/
 logs/
 log_text/
+
+nohup.out
