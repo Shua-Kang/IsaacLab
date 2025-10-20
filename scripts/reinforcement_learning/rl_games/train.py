@@ -33,6 +33,7 @@ parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy 
 parser.add_argument("--wandb-project-name", type=str, default=None, help="the wandb's project name")
 parser.add_argument("--wandb-entity", type=str, default=None, help="the entity (team) of wandb's project")
 parser.add_argument("--wandb-name", type=str, default=None, help="the name of wandb's run")
+parser.add_argument("--exp-name", type=str, default=None, help="the name of the experiment")
 parser.add_argument(
     "--track",
     type=lambda x: bool(strtobool(x)),
@@ -135,7 +136,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     print(f"[INFO] Logging experiment in directory: {log_root_path}")
     # specify directory for logging runs
-    log_dir = agent_cfg["params"]["config"].get("full_experiment_name", datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    # log_dir = agent_cfg["params"]["config"].get("full_experiment_name", datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    log_dir = args_cli.exp_name + "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") if args_cli.exp_name is not None else datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     # set directory into agent config
     # logging directory path: <train_dir>/<full_experiment_name>
     agent_cfg["params"]["config"]["train_dir"] = log_root_path
