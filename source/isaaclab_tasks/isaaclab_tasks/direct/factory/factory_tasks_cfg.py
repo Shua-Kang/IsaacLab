@@ -511,7 +511,8 @@ class LighterTaskCfg(FactoryTask):
                 solver_velocity_iteration_count=1,
                 max_contact_impulse=1e32,
             ),
-            mass_props=sim_utils.MassPropertiesCfg(mass=0.05),
+            # mass_props=sim_utils.MassPropertiesCfg(mass=0.05),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.01), # 0.001 ~ 0.05
             collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(
                 enabled_self_collisions=False,
@@ -539,7 +540,7 @@ class LighterTaskCfg(FactoryTask):
             "joint_2": ImplicitActuatorCfg(
                 joint_names_expr = "joint_2",
                 stiffness=0.0,
-                damping=0.0,
+                damping=0.0000, # 0.0000 ~ 0.0003
                 friction=0.0,
                 armature=0.0,
                 effort_limit_sim=12,

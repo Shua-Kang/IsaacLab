@@ -300,7 +300,7 @@ class LighterEnvCfg(DirectRLEnvCfg):
     ctrl: CtrlCfg = CtrlCfg()
     viewer = ViewerCfg(eye=(20.0, 20.0, 20.0))
     sim: SimulationCfg = SimulationCfg(
-        render_interval=8,
+        render_interval=1,
         device="cuda:0",
         dt=1 / 120,
         gravity=(0.0, 0.0, -9.81),

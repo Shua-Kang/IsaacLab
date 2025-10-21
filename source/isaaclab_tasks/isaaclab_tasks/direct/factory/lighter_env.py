@@ -32,7 +32,11 @@ import numpy as np
 import cv2
 from isaaclab.sensors.contact_sensor import ContactSensor
 import time
-
+from isaaclab.sim import schemas
+from isaaclab.sim.schemas import schemas_cfg
+from isaaclab.sim.utils import safe_set_attribute_on_usd_schema
+from isaacsim.core.utils.stage import get_current_stage
+from pxr import PhysxSchema, Usd, UsdPhysics
 import warp as wp
 wp.init()
 
@@ -1502,9 +1506,12 @@ class LighterEnv(DirectRLEnv):
                     f.write(f"time: {time.time()}\n")
             # import pdb; pdb.set_trace()
         positive_rewards = rewards > 0
-        rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact & positive_rewards) + 1.00 * rewards * (positive_rewards == False) + 0.0001 * if_contact 
+        rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact & positive_rewards) + 0.0001 * if_contact 
         # import pdb; pdb.set_trace()
+        task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
+        rewards = rewards + 10.0 * task_done * if_contact
         self.accumlated_rewards += rewards
+        # print("rewards", rewards.mean())
         return rewards
 
     # def _get_factory_rew_dict(self, curr_successes):
@@ -1591,10 +1598,19 @@ class LighterEnv(DirectRLEnv):
         # # 强校验范围
         # assert torch.all(env_ids >= 0), f"negative env id: {env_ids}"
         # assert torch.all(env_ids < self.num_envs), f"env id out of range: {env_ids.max()} vs {self.num_envs-1}"
-
-
+        
         super()._reset_idx(env_ids)
-
+        if(isinstance(env_ids, torch.Tensor)):
+            env_ids_list = env_ids.tolist()
+            # import pdb; pdb.set_trace()
+        for env_id in env_ids_list:
+            mass = 0.001
+            self._modify_object_mass(self._fixed_asset.cfg.prim_path.replace("env_.*", f"env_{env_id}") + "/link_0", mass)
+            self._modify_object_mass(self._fixed_asset.cfg.prim_path.replace("env_.*", f"env_{env_id}") + "/link_1", mass)
+            self._modify_object_mass(self._fixed_asset.cfg.prim_path.replace("env_.*", f"env_{env_id}") + "/link_2", mass)
+            self._modify_object_mass(self._fixed_asset.cfg.prim_path.replace("env_.*", f"env_{env_id}") + "/base", mass)
+        
+        # self._modify_object_mass(self._fixed_asset.cfg.prim_path.replace("env_.*", f"env_{env_ids.item()}"), 0.01)
         self._set_assets_to_default_pose(env_ids)
         self._set_franka_to_default_pose(joints=self.cfg.ctrl.reset_joints, env_ids=env_ids)
         # self.initialize_tactile_image()
@@ -1602,6 +1618,29 @@ class LighterEnv(DirectRLEnv):
 
         self.randomize_initial_state(env_ids)
         self.accumlated_rewards[env_ids] = 0
+
+    def _modify_object_mass(self, prim_path, mass):
+        stage = get_current_stage()
+        rigid_prim = stage.GetPrimAtPath(prim_path)
+        usd_physics_mass_api = UsdPhysics.MassAPI(rigid_prim)
+        cfg = schemas_cfg.MassPropertiesCfg(mass=mass)
+        cfg = cfg.to_dict()
+        for attr_name in ["mass", "density"]:
+            value = cfg.pop(attr_name, None)
+            safe_set_attribute_on_usd_schema(usd_physics_mass_api, attr_name, value, camel_case=True)
+
+        return True
+
+    def _modify_object_mass_directly(self, prim_path, mass):
+        stage = get_current_stage()
+        rigid_prim = stage.GetPrimAtPath(prim_path)
+        import pdb; pdb.set_trace()
+        mass_api = UsdPhysics.MassAPI.Apply(rigid_prim)
+        if not mass_api.GetMassAttr().Set(mass):
+            raise ValueError(f"Failed to modify mass properties for {prim_path}")
+        
+        return True
+        
     def _set_assets_to_default_pose(self, env_ids):
         """Move assets to default pose before randomization."""
         held_state = self._held_asset.data.default_root_state.clone()[env_ids]
