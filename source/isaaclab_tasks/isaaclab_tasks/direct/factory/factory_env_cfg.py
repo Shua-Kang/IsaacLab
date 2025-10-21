@@ -26,6 +26,7 @@ OBS_DIM_CFG = {
     "lighter_joints": 1,
     "fixed_pos": 3,
     "fixed_quat": 4,
+    "envs_mass": 1,
 }
 
 STATE_DIM_CFG = {
@@ -45,6 +46,7 @@ STATE_DIM_CFG = {
     "ema_factor": 1,
     "pos_threshold": 3,
     "rot_threshold": 3,
+    "envs_mass": 1,
 }
 
 
@@ -279,6 +281,7 @@ class LighterEnvCfg(DirectRLEnvCfg):
         "lighter_joints",
         "fixed_pos",
         "fixed_quat",
+        "envs_mass",
     ]
     state_order: list = [
         "fingertip_pos",
@@ -292,6 +295,7 @@ class LighterEnvCfg(DirectRLEnvCfg):
         "held_quat",
         "fixed_pos",
         "fixed_quat",
+        "envs_mass",
     ]
 
     task_name: str = "lighter"  # peg_insert, gear_mesh, nut_thread

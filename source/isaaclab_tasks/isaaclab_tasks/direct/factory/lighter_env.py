@@ -959,7 +959,8 @@ class LighterEnv(DirectRLEnv):
         
         # self.tactile_system = TactileSensingSystem(self)
         self.accumlated_rewards = torch.zeros((self.num_envs,), device=self.device)
-
+        self.mass_range = [0.1, 0.01]
+        self.envs_mass = torch.zeros((self.num_envs,), device=self.device)
         
 
     def _set_body_inertias(self):
@@ -1203,7 +1204,6 @@ class LighterEnv(DirectRLEnv):
         noisy_fixed_pos = self.fixed_pos_obs_frame + self.init_fixed_pos_obs_noise
 
         prev_actions = self.actions.clone()
-
         obs_dict = {
             "fingertip_pos": self.fingertip_midpoint_pos,
             "fingertip_pos_rel_fixed": self.fingertip_midpoint_pos - noisy_fixed_pos,
@@ -1214,6 +1214,7 @@ class LighterEnv(DirectRLEnv):
             "lighter_joints": self._fixed_asset.data.joint_pos[:,1:2].clone(),
             "fixed_pos": self.fixed_pos,
             "fixed_quat": self.fixed_quat,
+            "envs_mass": self.envs_mass.unsqueeze(-1),
         }
 
         state_dict = {
@@ -1233,6 +1234,7 @@ class LighterEnv(DirectRLEnv):
             "pos_threshold": self.pos_threshold,
             "rot_threshold": self.rot_threshold,
             "prev_actions": prev_actions,
+            "envs_mass": self.envs_mass.unsqueeze(-1),
         }
         return obs_dict, state_dict
 
@@ -1604,7 +1606,8 @@ class LighterEnv(DirectRLEnv):
             env_ids_list = env_ids.tolist()
             # import pdb; pdb.set_trace()
         for env_id in env_ids_list:
-            mass = 0.001
+            mass = np.random.uniform(self.mass_range[0], self.mass_range[1])
+            self.envs_mass[env_id] = mass
             self._modify_object_mass(self._fixed_asset.cfg.prim_path.replace("env_.*", f"env_{env_id}") + "/link_0", mass)
             self._modify_object_mass(self._fixed_asset.cfg.prim_path.replace("env_.*", f"env_{env_id}") + "/link_1", mass)
             self._modify_object_mass(self._fixed_asset.cfg.prim_path.replace("env_.*", f"env_{env_id}") + "/link_2", mass)
