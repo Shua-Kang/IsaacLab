@@ -810,7 +810,7 @@ class LighterEnv(DirectRLEnv):
         self.cfg_task = cfg.task
         self.initial_tactile_image = None
         self.last_time_joints = None
-        self.enable_global_camera = cfg.enable_tactile_camera
+        self.enable_global_camera = cfg.enable_global_camera
         self.enable_gripper_camera = cfg.enable_gripper_camera
         self.enable_tactile_camera = cfg.enable_tactile_camera
         self.enable_tactile = cfg.enable_tactile
