@@ -46,8 +46,8 @@ params:
       concat_input: True
       layer_norm: True
 
-  load_checkpoint: False
-  load_path: ""
+  load_checkpoint: True
+  load_path: r"C:\Users\jiuer\OneDrive - University of Virginia\Desktop\isaac\Factory.pth"
 
   config:
     name: Factory
@@ -72,8 +72,8 @@ params:
     schedule_type: standard
     kl_threshold: 0.008
     score_to_win: 20000
-    max_epochs: 200
-    save_best_after: 10
+    max_epochs: 2000
+    save_best_after: 5
     save_frequency: 100
     print_stats: True
     grad_norm: 1.0

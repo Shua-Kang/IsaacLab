@@ -37,6 +37,8 @@ parser.add_argument(
     help="When no checkpoint provided, use the last saved model. Otherwise use the best saved model.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+
+parser.add_argument("--dataset_save_path", type=str, default=None, help="Path to save the dataset.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -136,6 +138,12 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     clip_actions = agent_cfg["params"]["env"].get("clip_actions", math.inf)
     obs_groups = agent_cfg["params"]["env"].get("obs_groups")
     concate_obs_groups = agent_cfg["params"]["env"].get("concate_obs_groups", True)
+    
+    env_cfg.enable_tactile = True
+    env_cfg.enable_tactile_camera = True
+    env_cfg.enable_gripper_camera = True
+    env_cfg.enable_global_camera = True
+    env_cfg.mass_range = [0.01, 0.001]
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)

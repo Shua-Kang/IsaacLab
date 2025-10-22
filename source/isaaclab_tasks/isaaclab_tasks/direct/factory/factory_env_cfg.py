@@ -149,18 +149,19 @@ class FactoryEnvCfg(DirectRLEnvCfg):
         "..",
         "my_assets_new",
         "franka_tacsl_5.0",
-        "franka.usd",
+        "franka_no_ins.usd",
+        # "franka.usd",
     )
     #usd_path_raw = r"C:\onedrive\OneDrive - University of Virginia\Desktop\isaac\IsaacLab\my_assets_new\franka_tacsl_correct\franka.usd"
     # usd_path_raw = r"/p/langdiffuse/isaac_lab_xh/IsaacLab/my_assets_new/franka_tacsl_correct/franka.usd"
     robot_usd_path = os.path.normpath(usd_path_raw).replace("\\", "/")
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=512, env_spacing=2.0, clone_in_fabric=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=512, env_spacing=2.0, clone_in_fabric=False)
 
     robot = ArticulationCfg(
         prim_path="/World/envs/env_.*/Robot",
         spawn=sim_utils.UsdFileCfg(
-            # usd_path=robot_usd_path,
-            usd_path=f"{ASSET_DIR}/franka_mimic.usd",
+            usd_path=robot_usd_path,
+            # usd_path=f"{ASSET_DIR}/franka_mimic.usd",
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=True,
@@ -273,6 +274,11 @@ class LighterEnvCfg(DirectRLEnvCfg):
     # num_*: will be overwritten to correspond to obs_order, state_order.
     observation_space = 29
     state_space = 73
+    enable_global_camera = False
+    enable_gripper_camera = False
+    enable_tactile_camera = False
+    enable_tactile = False
+    mass_range = [0.01, 0.001]
     obs_order: list = [
         "fingertip_pos",
         "fingertip_quat",
