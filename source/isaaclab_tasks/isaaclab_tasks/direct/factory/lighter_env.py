@@ -971,15 +971,7 @@ class LighterEnv(DirectRLEnv):
         # --- 步骤 2: 将新材质应用到每个环境的机器人手指上 ---
         
         self.sim.step() # 确保材质和机器人 Prim 都已加载
-        # import pdb; pdb.set_trace()
 
-
-        
-
-        # return
-        # self.nominal_depth = self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].clone()
-        # import pdb; pdb.set_trace()
-        # return
         for i in range(self.scene.num_envs):
             # 定义左右两个手指的 碰撞体 Prim 的路径
             paths_to_modify = [
