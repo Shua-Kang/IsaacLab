@@ -9,7 +9,7 @@
 
 import argparse
 import sys
-
+import time
 from isaaclab.app import AppLauncher
 
 # add argparse arguments
@@ -87,7 +87,7 @@ from isaaclab_rl.rl_games import RlGamesGpuEnv, RlGamesVecEnvWrapper
 import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
-
+import numpy as np
 # PLACEHOLDER: Extension template (do not remove this comment)
 
 
@@ -144,8 +144,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     concate_obs_groups = agent_cfg["params"]["env"].get("concate_obs_groups", True)
     
     env_cfg.enable_tactile = False
-    env_cfg.enable_tactile_camera = False
-    env_cfg.enable_gripper_camera = False
+    env_cfg.enable_tactile_camera = True
+    env_cfg.enable_gripper_camera = True
     env_cfg.enable_global_camera = True
     env_cfg.mass_range = [args_cli.mass_low, args_cli.mass_high]
     if(args_cli.add_mass_observation):
@@ -213,6 +213,12 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # note: We simplified the logic in rl-games player.py (:func:`BasePlayer.run()`) function in an
     #   attempt to have complete control over environment stepping. However, this removes other
     #   operations such as masking that is used for multi-agent learning by RL-Games.
+    
+    if(args_cli.dataset_save_path is not None):
+        data_states = []
+        data_actions = []
+        data_dones = []
+    
     while simulation_app.is_running():
         start_time = time.time()
         print(f"[INFO] Timestep: {timestep}", end="\r")
@@ -223,8 +229,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             # agent stepping
             actions = agent.get_action(obs)
             # env stepping
-            obs, _, dones, _ = env.step(actions)
+            all_obs = env.env.env.get_all_obs()
 
+            obs, _, dones, _ = env.step(actions)
+            success = env.env.env.get_success_num()
+            print("timestep", timestep, "success:", success, "reward", torch.max(env.env.env._get_rewards()))
             # perform operations for terminated episodes
             if len(dones) > 0:
                 # reset rnn state for terminated episodes
@@ -236,7 +245,29 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             # exit the play loop after recording one video
             if timestep == args_cli.video_length:
                 break
+        if args_cli.dataset_save_path is not None:
+            if args_cli.video:
+                pass
+            else:
+                timestep += 1
 
+            # convert all_obs from dict to numpy            
+            dict_numpys = {key: v.cpu().numpy() for key, v in zip(all_obs.keys(), all_obs.values())}
+            data_states.append(dict_numpys)
+            data_actions.append(actions.cpu().numpy())
+            data_dones.append(success.cpu().numpy())
+            if(timestep >= 20):
+                # save dataset
+                dataset_save_path = os.path.join(args_cli.dataset_save_path, f"{task_name}_mass_{args_cli.mass_low}_{args_cli.mass_high}_seed_{args_cli.seed}_{time.time()}.npz")
+                os.makedirs(args_cli.dataset_save_path, exist_ok=True)
+                npz_dict = {
+                    "states":  np.array(data_states,  dtype=object),
+                    "actions": np.array(data_actions, dtype=object),
+                    "dones":   np.array(data_dones,   dtype=object),
+                }
+                np.savez_compressed(dataset_save_path, **npz_dict, allow_pickle=True)
+                print(f"\n[INFO] Dataset saved to: {dataset_save_path}")
+                break
         # time delay for real-time evaluation
         sleep_time = dt - (time.time() - start_time)
         if args_cli.real_time and sleep_time > 0:

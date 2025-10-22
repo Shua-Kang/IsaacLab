@@ -38,10 +38,42 @@ from isaaclab.sim.utils import safe_set_attribute_on_usd_schema
 from isaacsim.core.utils.stage import get_current_stage
 from pxr import PhysxSchema, Usd, UsdPhysics
 from isaaclab.utils.shear_tactile_viz_utils import visualize_penetration_depth, visualize_tactile_shear_image
+import isaaclab.utils.math as math_utils
 
 import warp as wp
 wp.init()
+wp.init()
+@wp.kernel
+def _warp_depth_normal_kernel(
+    mesh_id: wp.uint64,
+    pts: wp.array(dtype=wp.vec3f),
+    out_depth: wp.array(dtype=wp.float32),
+    out_mask: wp.array(dtype=wp.int32),
+    out_normal: wp.array(dtype=wp.vec3f),
+):
+    i = wp.tid()
+    p = pts[i]
 
+    q = wp.mesh_query_point_sign_winding_number(
+        mesh_id,
+        p,
+        wp.float32(1.0e6),
+    )
+
+    cp = wp.mesh_eval_position(mesh_id, q.face, q.u, q.v)
+    diff = p - cp
+    d = wp.length(diff)
+
+    inside = q.sign < wp.float32(0.0)
+    out_mask[i]  = wp.where(inside, wp.int32(1), wp.int32(0))
+    out_depth[i] = wp.where(inside, d, wp.float32(0.0))
+    
+    
+    eps = wp.float32(1e-9)
+    # n_out = diff / (wp.length(diff) + eps)
+    n_out = wp.normalize(diff)
+    
+    out_normal[i] = n_out
 class TactileSensingSystem:
     """
     一个管理机器人手指（传感器）和Peg（物体）之间触觉模拟的类。
@@ -97,7 +129,7 @@ class TactileSensingSystem:
         self.tactile_kt = 0.1    # 切向（剪切）刚度 (N*s/m)
         self.tactile_mu = 2.0    # 动摩擦系数 (无单位), 新增参数
         self.tactile_kd = 10.0
-        
+        self.depth_calculation_method = "warp"
         # self.enable_tactile_camera = enable_tactile_camera
         # if self.enable_tactile_camera:
         #     self.depth_camera = TiledCamera(self.env.cfg.TACTILE_CAMERA_CFG)
@@ -107,7 +139,7 @@ class TactileSensingSystem:
     def calculate_normal_shear_force(self, env_id: int) -> tuple[torch.Tensor, torch.Tensor]:
         """在每个仿真步骤中被调用，以计算并施加触觉力。"""
         # 1. 获取球体和立方体的当前姿态
-        
+    
         sphere_pos_w = self._peg.data.root_pos_w[env_id]
         sphere_quat_w = self._peg.data.root_quat_w[env_id]
         sphere_linvel_w = self._peg.data.root_lin_vel_w[env_id]
@@ -145,8 +177,6 @@ class TactileSensingSystem:
         # v_local_flat = quat_apply(q_sphere_inv_rep, v_world_flat - t_sphere)
         # tactile_points_sphere_local = v_local_flat.view(B, P, 3)  
 
-        import pdb; pdb.set_trace()
-        # 4. 查询 SDF 以获取穿透深度
         points_np = tactile_points_sphere_local.cpu().numpy()
         
         if self.depth_calculation_method == "pysdf":
@@ -398,6 +428,12 @@ class TactileSensingSystem:
             print("[INFO] Peg SDF initialized from stage.")
         except Exception as e:
             print(f"[ERROR] Failed to initialize SDF. Error: {e}")
+            
+        self.sphere_wp_mesh = wp.Mesh(
+            points=wp.array(peg_mesh.vertices, dtype=wp.vec3, device=self.device),
+            indices=wp.array(peg_mesh.faces.reshape(-1), dtype=wp.int32, device=self.device),
+            support_winding_number=True,
+        )
 
     def _extract_mesh_from_prim(self, prim_path: str) -> trimesh.Trimesh | None:
         """
@@ -771,27 +807,15 @@ class TactileSensingSystem:
     
 
     def update(self) -> torch.Tensor:
-        self.visualization_counter += 1
-
-        debug = False
-        if debug:
-            if self.env.enable_tactile_camera:
-                current_tactile_image = self.env.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3)
-                torchvision.utils.save_image( (current_tactile_image - current_tactile_image.min()) / (current_tactile_image.max() - current_tactile_image.min()), os.path.join(self.env.log_img_save_path, "tactile_depth_image.png" ) )
-                torchvision.utils.save_image(self.env.scene.sensors["tactile_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "tactile_rgb_image.png" ) )
-                tactile_depth_image = current_tactile_image - self.env.initial_tactile_image
-                tactile_depth_image = (tactile_depth_image - tactile_depth_image.min()) / (tactile_depth_image.max() - tactile_depth_image.min())
-                # import pdb; pdb.set_trace()
-                torchvision.utils.save_image(tactile_depth_image, os.path.join(self.env.log_img_save_path, "tactile_depth_image_diff.png" ) )
-            if self.env.enable_gripper_camera:
-                torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "gripper_image.png" ) )
-                torchvision.utils.save_image(self.env.scene.sensors["gripper_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.env.log_img_save_path, "gripper_depth_image.png" ) )
-            if self.env.enable_global_camera:
-                torchvision.utils.save_image(self.env.scene.sensors["global_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.env.log_img_save_path, "global_image.png" ) )
-                torchvision.utils.save_image(self.env.scene.sensors["global_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.env.log_img_save_path, "global_depth_image.png" ) )
-            
-
-        nomal_force, shear_force = self.calculate_normal_shear_force()
+        
+        nomal_forces = []
+        shear_forces = []
+        for i in range(self.num_envs):
+            nomal_force, shear_force = self.calculate_normal_shear_force(i)
+            nomal_forces.append(nomal_force)
+            shear_forces.append(shear_force)
+        nomal_forces = torch.stack(nomal_forces, dim=0)
+        shear_forces = torch.stack(shear_forces, dim=0)
 
 
         return nomal_force, shear_force
@@ -1084,15 +1108,38 @@ class LighterEnv(DirectRLEnv):
             
 
         if self.enable_tactile_camera:
-            tactile_depth_image = self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].clone()
-            self.tactile_depth_image = (tactile_depth_image - self.initial_tactile_image) / (self.initial_tactile_image.max() - self.initial_tactile_image.min())
-        
+            if(self.initial_tactile_image is not None):
+                tactile_depth_image = self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].clone()
+                self.tactile_depth_image = (tactile_depth_image - self.initial_tactile_image) / (self.initial_tactile_image.max() - self.initial_tactile_image.min())
+                print(torch.max(self.tactile_depth_image))
+                torchvision.utils.save_image(self.tactile_depth_image.transpose(1, 3).transpose(2, 3), os.path.join(self.log_img_save_path, "tactile_image.png" ) )
+                # self.initial_rgb_image = self.scene.sensors["tactile_camera"].data.output["rgb"].clone()
+                # torchvision.utils.save_image(self.initial_rgb_image.transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.log_img_save_path, "initial_rgb_image.png" ) )
+
         if self.enable_gripper_camera:
             self.gripper_camera_data = self.scene.sensors["gripper_camera"].data.output["rgb"]
 
         if self.enable_global_camera:
             self.global_camera_data = self.scene.sensors["global_camera"].data.output["rgb"]
 
+    def get_all_obs(self):
+        state_dict = {
+            "joint_pos": self.joint_pos[:, 0:7],
+            "envs_mass": self.envs_mass.unsqueeze(-1),
+        }
+
+        if self.enable_tactile:
+            state_dict["tactile_depth_image"] = self.tactile_depth_image
+        
+        if self.enable_gripper_camera:
+            state_dict["gripper_camera_image"] = self.gripper_camera_data
+            
+        if self.enable_global_camera:
+            state_dict["global_camera_image"] = self.global_camera_data
+        
+        if self.enable_tactile_camera:
+            state_dict["tactile_camera_image"] = self.tactile_depth_image
+        return state_dict
 
     def _get_factory_obs_state_dict(self):
         """Populate dictionaries for the policy and critic."""
@@ -1417,7 +1464,7 @@ class LighterEnv(DirectRLEnv):
 
     def get_success_num(self):
         task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
-        return torch.sum(task_done)
+        return task_done
 
     # def _get_factory_rew_dict(self, curr_successes):
     #     """Compute reward terms at current timestep."""
@@ -1492,18 +1539,6 @@ class LighterEnv(DirectRLEnv):
 
     def _reset_idx(self, env_ids):
         """We assume all envs will always be reset at the same time."""
-        # if env_ids is None:
-        #     print("env_ids is None")
-        #     return
-        # env_ids = env_ids.to(device=self.device, dtype=torch.long).view(-1)
-        # if env_ids.numel() == 0:
-        #     print("env_ids is empty")
-        #     return  # 空集必须直接 return，避免后面任一 write_* 调用触发隐式广播或越界
-
-        # # 强校验范围
-        # assert torch.all(env_ids >= 0), f"negative env id: {env_ids}"
-        # assert torch.all(env_ids < self.num_envs), f"env id out of range: {env_ids.max()} vs {self.num_envs-1}"
-        
         super()._reset_idx(env_ids)
         if(isinstance(env_ids, torch.Tensor)):
             env_ids_list = env_ids.tolist()
@@ -1519,7 +1554,7 @@ class LighterEnv(DirectRLEnv):
         # self._modify_object_mass(self._fixed_asset.cfg.prim_path.replace("env_.*", f"env_{env_ids.item()}"), 0.01)
         self._set_assets_to_default_pose(env_ids)
         self._set_franka_to_default_pose(joints=self.cfg.ctrl.reset_joints, env_ids=env_ids)
-        if self.enable_tactile:
+        if self.enable_tactile_camera:
             self.initialize_tactile_image()
         self.step_sim_no_action()
 
