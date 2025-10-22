@@ -71,3 +71,5 @@ logs/
 log_text/
 
 nohup.out
+
+checkpoints/
