@@ -1003,7 +1003,7 @@ class LighterEnv(DirectRLEnv):
                     bindingStrength=UsdShade.Tokens.strongerThanDescendants
                 )
                 
-                print(f"成功将材质 '{soft_material_path}' 应用到: {path}")
+                # print(f"成功将材质 '{soft_material_path}' 应用到: {path}")
 
 
         # collider_cfg = schemas_utils.CollisionPropertiesCfg(
@@ -1410,6 +1410,14 @@ class LighterEnv(DirectRLEnv):
         self.accumlated_rewards += rewards
         # print("rewards", rewards.mean())
         return rewards
+
+    def get_success_str(self):
+        task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
+        return str(torch.sum(task_done)) + "/" + str(self.num_envs) + "(" + str(torch.sum(task_done) / self.num_envs) + ")"
+
+    def get_success_num(self):
+        task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
+        return torch.sum(task_done)
 
     # def _get_factory_rew_dict(self, curr_successes):
     #     """Compute reward terms at current timestep."""

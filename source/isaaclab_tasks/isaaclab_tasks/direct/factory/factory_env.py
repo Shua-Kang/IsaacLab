@@ -879,7 +879,7 @@ class FactoryEnv(DirectRLEnv):
                     bindingStrength=UsdShade.Tokens.strongerThanDescendants
                 )
                 
-                print(f"成功将材质 '{soft_material_path}' 应用到: {path}")
+                # print(f"成功将材质 '{soft_material_path}' 应用到: {path}")
 
 
         # collider_cfg = schemas_utils.CollisionPropertiesCfg(

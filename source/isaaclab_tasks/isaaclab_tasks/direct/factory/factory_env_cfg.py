@@ -272,8 +272,8 @@ class LighterEnvCfg(DirectRLEnvCfg):
     decimation = 8
     action_space = 6
     # num_*: will be overwritten to correspond to obs_order, state_order.
-    observation_space = 29
-    state_space = 73
+    observation_space = 28
+    state_space = 72
     enable_global_camera = False
     enable_gripper_camera = False
     enable_tactile_camera = False
@@ -287,7 +287,6 @@ class LighterEnvCfg(DirectRLEnvCfg):
         "lighter_joints",
         "fixed_pos",
         "fixed_quat",
-        "envs_mass",
     ]
     state_order: list = [
         "fingertip_pos",
@@ -301,7 +300,6 @@ class LighterEnvCfg(DirectRLEnvCfg):
         "held_quat",
         "fixed_pos",
         "fixed_quat",
-        "envs_mass",
     ]
 
     task_name: str = "lighter"  # peg_insert, gear_mesh, nut_thread
@@ -534,7 +532,7 @@ class FactoryTaskNutThreadCfg(FactoryEnvCfg):
 class FactoryTaskLighterCfg(LighterEnvCfg):
     task_name = "lighter"
     task = LighterTaskCfg()
-    episode_length_s = 10.0
+    episode_length_s = 3.0
     terminations = TerminationsCfg(
         time_out=None,
         object_reached_goal=None,

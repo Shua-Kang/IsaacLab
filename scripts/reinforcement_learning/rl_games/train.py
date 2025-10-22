@@ -43,6 +43,9 @@ parser.add_argument(
     help="if toggled, this experiment will be tracked with Weights and Biases",
 )
 parser.add_argument("--export_io_descriptors", action="store_true", default=False, help="Export IO descriptors.")
+parser.add_argument("--mass_low", type=float, default=0.001, help="Lower bound for mass initialization.")
+parser.add_argument("--mass_high", type=float, default=0.01, help="Upper bound for mass initialization.")
+parser.add_argument("--add_mass_observation", action="store_true", default=False, help="Add mass observation to the observation space.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -137,13 +140,14 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     print(f"[INFO] Logging experiment in directory: {log_root_path}")
     # specify directory for logging runs
     # log_dir = agent_cfg["params"]["config"].get("full_experiment_name", datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
-    log_dir = args_cli.exp_name + "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") if args_cli.exp_name is not None else datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_dir = args_cli.exp_name + "_" + str(args_cli.mass_high) + "_" + str(args_cli.mass_low) + "_" + ("True" if args_cli.add_mass_observation else "False") + "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") if args_cli.exp_name is not None else datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     # set directory into agent config
     # logging directory path: <train_dir>/<full_experiment_name>
     agent_cfg["params"]["config"]["train_dir"] = log_root_path
     agent_cfg["params"]["config"]["full_experiment_name"] = log_dir
     wandb_project = config_name if args_cli.wandb_project_name is None else args_cli.wandb_project_name
-    experiment_name = log_dir if args_cli.wandb_name is None else args_cli.wandb_name
+    # experiment_name = log_dir if args_cli.wandb_name is None else args_cli.wandb_name
+    experiment_name = log_dir
 
     # dump the configuration into log-directory
     dump_yaml(os.path.join(log_root_path, log_dir, "params", "env.yaml"), env_cfg)
@@ -166,7 +170,16 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         omni.log.warn(
             "IO descriptors are only supported for manager based RL environments. No IO descriptors will be exported."
         )
-
+    env_cfg.enable_tactile = False
+    env_cfg.enable_tactile_camera = False
+    env_cfg.enable_gripper_camera = False
+    env_cfg.enable_global_camera = False
+    env_cfg.mass_range = [args_cli.mass_low, args_cli.mass_high]
+    if(args_cli.add_mass_observation):
+        env_cfg.obs_order.append("envs_mass")
+        env_cfg.observation_space += 1
+        env_cfg.state_order.append("envs_mass")
+        env_cfg.state_space += 1
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
 

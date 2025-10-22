@@ -15,7 +15,7 @@ from isaaclab.app import AppLauncher
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Play a checkpoint of an RL agent from RL-Games.")
 parser.add_argument("--video", action="store_true", default=False, help="Record videos during training.")
-parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
+parser.add_argument("--video_length", type=int, default=100, help="Length of the recorded video (in steps).")
 parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
 )
@@ -39,6 +39,10 @@ parser.add_argument(
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 
 parser.add_argument("--dataset_save_path", type=str, default=None, help="Path to save the dataset.")
+parser.add_argument("--mass_low", type=float, default=0.001, help="Lower bound for mass initialization.")
+parser.add_argument("--mass_high", type=float, default=0.01, help="Upper bound for mass initialization.")
+parser.add_argument("--add_mass_observation", action="store_true", default=False, help="Add mass observation to the observation space.")
+
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -139,12 +143,16 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     obs_groups = agent_cfg["params"]["env"].get("obs_groups")
     concate_obs_groups = agent_cfg["params"]["env"].get("concate_obs_groups", True)
     
-    env_cfg.enable_tactile = True
-    env_cfg.enable_tactile_camera = True
-    env_cfg.enable_gripper_camera = True
+    env_cfg.enable_tactile = False
+    env_cfg.enable_tactile_camera = False
+    env_cfg.enable_gripper_camera = False
     env_cfg.enable_global_camera = True
-    env_cfg.mass_range = [0.01, 0.001]
-
+    env_cfg.mass_range = [args_cli.mass_low, args_cli.mass_high]
+    if(args_cli.add_mass_observation):
+        env_cfg.obs_order.append("envs_mass")
+        env_cfg.observation_space += 1
+        env_cfg.state_order.append("envs_mass")
+        env_cfg.state_space += 1
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
 
@@ -207,6 +215,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     #   operations such as masking that is used for multi-agent learning by RL-Games.
     while simulation_app.is_running():
         start_time = time.time()
+        print(f"[INFO] Timestep: {timestep}", end="\r")
         # run everything in inference mode
         with torch.inference_mode():
             # convert obs to agent format
@@ -231,7 +240,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         # time delay for real-time evaluation
         sleep_time = dt - (time.time() - start_time)
         if args_cli.real_time and sleep_time > 0:
-            time.sleep(sleep_time)
+            # time.sleep(sleep_time)
+            pass
 
     # close the simulator
     env.close()
