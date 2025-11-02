@@ -1712,6 +1712,8 @@ class LighterEnv(DirectRLEnv):
         # )
         # fixed_pos_init_rand = fixed_pos_init_rand @ torch.diag(fixed_asset_init_pos_rand)
         fixed_state[:, 0:3] += torch.tensor([0, 0, 0], device=self.device) + self.scene.env_origins[env_ids]
+        fixed_state[:, 0] += (torch.rand((len(env_ids)), dtype=torch.float32, device=self.device) - 0.5) * 0.001
+        fixed_state[:, 1] += (torch.rand((len(env_ids)), dtype=torch.float32, device=self.device) - 0.5) * 0.001
         # (1.b.) Orientation
         # fixed_orn_init_yaw = np.deg2rad(self.cfg_task.fixed_asset_init_orn_deg + 90)
         # fixed_orn_yaw_range = np.deg2rad(self.cfg_task.fixed_asset_init_orn_range_deg)
@@ -1721,7 +1723,7 @@ class LighterEnv(DirectRLEnv):
         fixed_orn_euler = torch.zeros((len(env_ids), 3), dtype=torch.float32, device=self.device)
         fixed_orn_euler[:, 0] = 0 + 1.5707963 
         fixed_orn_euler[:, 1] = 0 
-        fixed_orn_euler[:, 2] = torch.randn((len(env_ids)), dtype=torch.float32, device=self.device) * 0.1     
+        fixed_orn_euler[:, 2] = torch.randn((len(env_ids)), dtype=torch.float32, device=self.device) * 0.4   
         fixed_orn_quat = torch_utils.quat_from_euler_xyz(
             fixed_orn_euler[:, 0], fixed_orn_euler[:, 1], fixed_orn_euler[:, 2]
         )
