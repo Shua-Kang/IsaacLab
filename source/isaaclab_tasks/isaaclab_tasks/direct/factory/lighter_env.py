@@ -977,7 +977,7 @@ class LighterEnv(DirectRLEnv):
         from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg, spawn_rigid_body_material
 
         soft_material_cfg = RigidBodyMaterialCfg(
-            compliant_contact_stiffness=6000.0,
+            compliant_contact_stiffness=6.0,
             compliant_contact_damping=0.0,
             static_friction=0,        # 静摩擦系数（起步/粘住）
             dynamic_friction=0,       # 动摩擦系数（滑动时）
@@ -1102,9 +1102,15 @@ class LighterEnv(DirectRLEnv):
         if self.enable_tactile_camera:
             if(self.initial_tactile_image is not None):
                 tactile_depth_image = self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].clone()
-                self.tactile_depth_image = (tactile_depth_image - self.initial_tactile_image) / (self.initial_tactile_image.max() - self.initial_tactile_image.min())
-                print(torch.max(self.tactile_depth_image))
+                # self.tactile_depth_image = (tactile_depth_image - self.initial_tactile_image) / (torch.max(self.initial_tactile_image) - torch.min(self.initial_tactile_image))
+                
+                self.tactile_depth_image = (tactile_depth_image - torch.min(self.initial_tactile_image)) / (torch.max(self.initial_tactile_image) - torch.min(self.initial_tactile_image))
+                # print(torch.max(self.tactile_depth_image))
                 torchvision.utils.save_image(self.tactile_depth_image.transpose(1, 3).transpose(2, 3), os.path.join(self.log_img_save_path, "tactile_image.png" ) )
+                # save current and initial tactile image
+                # torchvision.utils.save_image((tactile_depth_image.transpose(1, 3).transpose(2, 3) - torch.min(tactile_depth_image.transpose(1, 3).transpose(2, 3))) / (torch.max(tactile_depth_image.transpose(1, 3).transpose(2, 3)) - torch.min(tactile_depth_image.transpose(1, 3).transpose(2, 3))), os.path.join(self.log_img_save_path, "tactile_image_current.png" ) )
+                # torchvision.utils.save_image((self.initial_tactile_image.transpose(1, 3).transpose(2, 3) - torch.min(self.initial_tactile_image.transpose(1, 3).transpose(2, 3))) / (torch.max(self.initial_tactile_image.transpose(1, 3).transpose(2, 3)) - torch.min(self.initial_tactile_image.transpose(1, 3).transpose(2, 3))) , os.path.join(self.log_img_save_path, "tactile_image_initial.png" ) )
+
                 # self.initial_rgb_image = self.scene.sensors["tactile_camera"].data.output["rgb"].clone()
                 # torchvision.utils.save_image(self.initial_rgb_image.transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.log_img_save_path, "initial_rgb_image.png" ) )
 
@@ -1713,9 +1719,9 @@ class LighterEnv(DirectRLEnv):
         # fixed_orn_euler = fixed_orn_init_yaw + fixed_orn_yaw_range * rand_sample
         # fixed_orn_euler[:, 0:2] = 0.0  # Only change yaw.
         fixed_orn_euler = torch.zeros((len(env_ids), 3), dtype=torch.float32, device=self.device)
-        fixed_orn_euler[:, 0] = 0 + 1.5707963
-        fixed_orn_euler[:, 1] = 0
-        fixed_orn_euler[:, 2] = 0 
+        fixed_orn_euler[:, 0] = 0 + 1.5707963 
+        fixed_orn_euler[:, 1] = 0 
+        fixed_orn_euler[:, 2] = torch.randn((len(env_ids)), dtype=torch.float32, device=self.device) * 0.1     
         fixed_orn_quat = torch_utils.quat_from_euler_xyz(
             fixed_orn_euler[:, 0], fixed_orn_euler[:, 1], fixed_orn_euler[:, 2]
         )
@@ -1769,7 +1775,7 @@ class LighterEnv(DirectRLEnv):
             n_bad = bad_envs.shape[0]
             above_fixed_pos = fixed_tip_pos.clone()
             # above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
-            above_fixed_pos[:, 1] += 0.02
+            above_fixed_pos[:, 1] += 0.03
             rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
             above_fixed_pos_rand = 0.2 * (rand_sample - 0.5)  # [-1, 1]
             hand_init_pos_rand = torch.tensor(self.cfg_task.hand_init_pos_noise, device=self.device)
