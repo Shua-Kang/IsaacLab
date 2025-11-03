@@ -1867,7 +1867,7 @@ class LighterEnv(DirectRLEnv):
             # above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
             # above_fixed_pos[:, 1] += 0.03
             above_fixed_pos[:, 1] += 0.03
-            above_fixed_pos[:, 2] += 0.07
+            # above_fixed_pos[:, 2] += 0.07
             rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
             above_fixed_pos_rand = 0.2 * (rand_sample - 0.5)  # [-1, 1]
             hand_init_pos_rand = torch.tensor(self.cfg_task.hand_init_pos_noise, device=self.device)
