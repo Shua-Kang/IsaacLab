@@ -242,7 +242,8 @@ def main() -> None:
                     actions = action.repeat(env.num_envs, 1)
                     # apply actions
                     import random
-                    actions[:,1] = random.uniform(-1.0, 1.0)
+                    # actions[:,1] = random.uniform(-1.0, 1.0)
+                    actions[:,5] = 1
                     # actions[:,1] = 0.0
                     actions = actions[:,0:6] 
                     # print(actions)

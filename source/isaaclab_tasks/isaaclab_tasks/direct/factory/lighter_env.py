@@ -834,6 +834,8 @@ class LighterEnv(DirectRLEnv):
         self.cfg_task = cfg.task
         self.initial_tactile_image = None
         self.last_time_joints = None
+        self.last_time_angle = None
+        self.update_last_time_angle = None
         self.enable_global_camera = cfg.enable_global_camera
         self.enable_gripper_camera = cfg.enable_gripper_camera
         self.enable_tactile_camera = cfg.enable_tactile_camera
@@ -1447,8 +1449,40 @@ class LighterEnv(DirectRLEnv):
                     f.write(f"rewards: {rewards.mean()}\n")
                     f.write(f"time: {time.time()}\n")
             # import pdb; pdb.set_trace()
+
+        def calculate_angle_reward():
+            robot_head_angle = self._robot.data.body_quat_w[:, self._robot.body_names.index("panda_hand"),:]
+            euler_angle = torch_utils.get_euler_xyz(robot_head_angle)
+            lighter_angle = self._fixed_asset.data.root_quat_w[:]
+            lighter_euler_angle = torch_utils.get_euler_xyz(lighter_angle)
+
+            robot_angle = euler_angle[2] % (2 * torch.pi)
+            lighter_angle = lighter_euler_angle[2] % (2 * torch.pi)
+
+            if(self.last_time_angle is not None):
+
+                current_diff = torch.abs((robot_angle - lighter_angle + torch.pi) % (2 * torch.pi) - torch.pi)
+                last_diff = torch.abs((self.last_time_angle - lighter_angle + torch.pi) % (2 * torch.pi) - torch.pi)
+                # import pdb; pdb.set_trace()
+                angle_reward = last_diff - current_diff
+                angle_reward = torch.where(self.update_last_time_angle == 0, angle_reward, 0)
+                self.last_time_angle = robot_angle
+                # import pdb; pdb.set_trace()
+                # print(angle_diff)
+                angle_reward = torch.where(current_diff < 0.2, 0, angle_reward)
+            else:
+                self.last_time_angle = robot_angle
+                
+                angle_reward = 0
+            
+            
+            # angle_reward[angle_diff < 0.5] = 0
+            self.update_last_time_angle = torch.zeros((self.num_envs,), device=self.device)
+            return angle_reward
+        angle_reward = calculate_angle_reward()
+        # print(angle_reward)
         positive_rewards = rewards > 0
-        rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact & positive_rewards) + 0.0001 * if_contact 
+        rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact & positive_rewards) + 0.0001 * if_contact + angle_reward
         # import pdb; pdb.set_trace()
         task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
         rewards = rewards + 10.0 * task_done * if_contact
@@ -1537,6 +1571,9 @@ class LighterEnv(DirectRLEnv):
 
     def _reset_idx(self, env_ids):
         """We assume all envs will always be reset at the same time."""
+        if(self.update_last_time_angle is not None):
+            self.update_last_time_angle[env_ids] = torch.ones((len(env_ids),), device=self.device)
+
         super()._reset_idx(env_ids)
         if(isinstance(env_ids, torch.Tensor)):
             env_ids_list = env_ids.tolist()
@@ -1723,7 +1760,8 @@ class LighterEnv(DirectRLEnv):
         fixed_orn_euler = torch.zeros((len(env_ids), 3), dtype=torch.float32, device=self.device)
         fixed_orn_euler[:, 0] = 0 + 1.5707963 
         fixed_orn_euler[:, 1] = 0 
-        fixed_orn_euler[:, 2] = torch.randn((len(env_ids)), dtype=torch.float32, device=self.device) * 0.4   
+        fixed_orn_euler[:, 2] = torch.randn((len(env_ids)), dtype=torch.float32, device=self.device) * 0.8   
+        # fixed_orn_euler[:, 2] = torch.randn((len(env_ids)), dtype=torch.float32, device=self.device) * 0.0   
         fixed_orn_quat = torch_utils.quat_from_euler_xyz(
             fixed_orn_euler[:, 0], fixed_orn_euler[:, 1], fixed_orn_euler[:, 2]
         )
