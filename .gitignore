@@ -73,3 +73,5 @@ log_text/
 nohup.out
 
 checkpoints/
+
+*.txt
