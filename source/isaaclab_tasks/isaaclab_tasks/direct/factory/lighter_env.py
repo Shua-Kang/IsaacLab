@@ -130,6 +130,9 @@ class TactileSensingSystem:
         self.tactile_mu = 2.0    # 动摩擦系数 (无单位), 新增参数
         self.tactile_kd = 10.0
         self.depth_calculation_method = "warp"
+
+        
+
         # self.enable_tactile_camera = enable_tactile_camera
         # if self.enable_tactile_camera:
         #     self.depth_camera = TiledCamera(self.env.cfg.TACTILE_CAMERA_CFG)
@@ -840,6 +843,11 @@ class LighterEnv(DirectRLEnv):
         self.enable_gripper_camera = cfg.enable_gripper_camera
         self.enable_tactile_camera = cfg.enable_tactile_camera
         self.enable_tactile = cfg.enable_tactile
+        self.update_last_time_position = None
+        self.last_time_position = None
+        self.stage = None
+        self.stage_based_training = False
+        self.enable_position_reward = False
 
         super().__init__(cfg, render_mode, **kwargs)
         self.tactile_image_scale = 35
@@ -1470,6 +1478,7 @@ class LighterEnv(DirectRLEnv):
                 # import pdb; pdb.set_trace()
                 # print(angle_diff)
                 angle_reward = torch.where(current_diff < 0.2, 0, angle_reward)
+                self.stage = torch.where(current_diff < 0.2, 2, self.stage)
             else:
                 self.last_time_angle = robot_angle
                 
@@ -1478,16 +1487,48 @@ class LighterEnv(DirectRLEnv):
             
             # angle_reward[angle_diff < 0.5] = 0
             self.update_last_time_angle = torch.zeros((self.num_envs,), device=self.device)
+            
             return angle_reward
         angle_reward = calculate_angle_reward()
+        # angle_reward = torch.where(self.stage == 1, angle_reward, 0)
+
+        def position_reward():
+            position_reward = torch.zeros((self.num_envs,), device=self.device)
+            current_pos = self._robot.data.body_pos_w[:, self._robot.body_names.index("panda_hand"),2]
+            if(self.update_last_time_position is None):
+                # self.update_lost_time_position = torch.zeros((self.num_envs,), device=self.device)
+                self.update_last_time_position = self._robot.data.body_pos_w[:, self._robot.body_names.index("panda_hand"),:]
+                position_reward = torch.zeros((self.num_envs,), device=self.device)
+            else:
+                
+                target_pos = 0.2693 - 0.07
+                position_reward = torch.norm( self.last_time_position - current_pos, p=2, dim=-1)
+                position_reward = torch.where(self.update_last_time_position == 0, position_reward, 0)
+                self.stage = torch.where(current_pos[:] < target_pos, 3, self.stage)
+            self.last_time_position = current_pos
+            self.update_last_time_position = torch.zeros((self.num_envs,), device=self.device)
+            return position_reward
+        pos_reward = position_reward()
+
         # print(angle_reward)
         positive_rewards = rewards > 0
-        rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact & positive_rewards) + 0.0001 * if_contact + angle_reward
+        open_rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact & positive_rewards) + 0.0001 * if_contact
         # import pdb; pdb.set_trace()
         task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
-        rewards = rewards + 10.0 * task_done * if_contact
-        self.accumlated_rewards += rewards
+        open_rewards = open_rewards + 10.0 * task_done * if_contact
+
+        # self.accumlated_rewards += open_rewards
         # print("rewards", rewards.mean())
+        if(self.stage_based_training):
+            angle_reward = torch.where(self.stage == 1, angle_reward, 0)
+            pos_reward = torch.where(self.stage == 2, pos_reward, 0)
+            open_rewards = torch.where(self.stage == 3, open_rewards, 0)
+
+        if(self.enable_position_reward):
+            rewards = open_rewards + angle_reward + pos_reward
+        else:
+            rewards = open_rewards + angle_reward * 100
+        # print("angle , pos, open_rewards", angle_reward, pos_reward, open_rewards)
         return rewards
 
     def get_success_str(self):
@@ -1574,6 +1615,14 @@ class LighterEnv(DirectRLEnv):
         if(self.update_last_time_angle is not None):
             self.update_last_time_angle[env_ids] = torch.ones((len(env_ids),), device=self.device)
 
+        if(self.update_last_time_position is not None):
+            self.update_last_time_position[env_ids] = torch.ones((len(env_ids),), device=self.device)
+
+
+        if(self.stage is None):
+            self.stage = torch.ones((len(env_ids),), device=self.device)
+        else:
+            self.stage[env_ids] = torch.ones((len(env_ids),), device=self.device)
         super()._reset_idx(env_ids)
         if(isinstance(env_ids, torch.Tensor)):
             env_ids_list = env_ids.tolist()
@@ -1815,7 +1864,9 @@ class LighterEnv(DirectRLEnv):
             n_bad = bad_envs.shape[0]
             above_fixed_pos = fixed_tip_pos.clone()
             # above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
+            # above_fixed_pos[:, 1] += 0.03
             above_fixed_pos[:, 1] += 0.03
+            above_fixed_pos[:, 2] += 0.07
             rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
             above_fixed_pos_rand = 0.2 * (rand_sample - 0.5)  # [-1, 1]
             hand_init_pos_rand = torch.tensor(self.cfg_task.hand_init_pos_noise, device=self.device)
