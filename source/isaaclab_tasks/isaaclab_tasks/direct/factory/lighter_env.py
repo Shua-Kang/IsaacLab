@@ -1533,7 +1533,7 @@ class LighterEnv(DirectRLEnv):
 
     def get_success_str(self):
         task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
-        return str(torch.sum(task_done)) + "/" + str(self.num_envs) + "(" + str(torch.sum(task_done) / self.num_envs) + ")"
+        return str(torch.sum(task_done).item()) + "/" + str(self.num_envs) + "(" + str(torch.sum(task_done).item() / self.num_envs) + ")"
 
     def get_success_num(self):
         task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
@@ -1611,6 +1611,7 @@ class LighterEnv(DirectRLEnv):
             # torchvision.utils.save_image(self.initial_rgb_image.transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.log_img_save_path, "initial_rgb_image.png" ) )
 
     def _reset_idx(self, env_ids):
+        print("Success number: ", self.get_success_str())
         """We assume all envs will always be reset at the same time."""
         if(self.update_last_time_angle is not None):
             self.update_last_time_angle[env_ids] = torch.ones((len(env_ids),), device=self.device)
