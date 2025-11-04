@@ -331,7 +331,7 @@ class LighterEnvCfg(DirectRLEnvCfg):
 
     )
 
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=512, env_spacing=2.0, clone_in_fabric=False , replicate_physics = True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=512, env_spacing=4.0, clone_in_fabric=False , replicate_physics = True)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     usd_path_raw = os.path.join(
         current_dir,
@@ -433,8 +433,8 @@ class LighterEnvCfg(DirectRLEnvCfg):
     gripper_camera : TiledCameraCfg = TiledCameraCfg(
         prim_path="/World/envs/env_.*/Robot/franka_bak/panda_hand/Camera/gripper_camera",
         update_period=0.0,
-        height=224,
-        width=224,
+        height=256,
+        width=256,
         data_types=["rgb"],  # 等效于 'depth'
         depth_clipping_behavior="none",  # (near_plane, far_plane)
         # offset=CameraCfg.OffsetCfg(
@@ -473,15 +473,16 @@ class LighterEnvCfg(DirectRLEnvCfg):
         # 注意：不挂在 Robot 下，而是挂在每个 env 自己的 Cameras 目录
         prim_path="/World/envs/env_.*/Robot/franka_bak/Camera/global_camera",
         update_period=0.2,
-        height=200,
-        width=300,
+        height=256,
+        width=256,
         data_types=["rgb", "distance_to_image_plane"],  # 深度同等价
         depth_clipping_behavior="none",
         offset=CameraCfg.OffsetCfg(
-            pos=(1.2, -0.5, 0.5),
+            pos=(1.0, 0.0, 0.5),
             # rot=( 0.73254,0.46194, 0.19134, 0.46194),
-            rot=(-0.46194, 0.73254, 0.46194, -0.19134),
-            convention="ros",
+            # rot=(-0.46194, 0.73254, 0.46194, -0.19134),
+            rot=(0.65328, 0.2706, 0.2706, 0.65328),
+            convention="opengl",
         ),
         spawn=sim_utils.PinholeCameraCfg(),
         debug_vis=True,

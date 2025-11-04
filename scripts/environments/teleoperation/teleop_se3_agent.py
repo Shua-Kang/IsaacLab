@@ -250,6 +250,8 @@ def main() -> None:
                     # print(actions)
                     env.step(actions)
                     # print("Reward", env.step(actions)[1].item())
+                    env.get_all_obs()
+                    
                 else:
                     env.sim.render()
 

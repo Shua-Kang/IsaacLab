@@ -225,13 +225,14 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         # run everything in inference mode
         with torch.inference_mode():
             # convert obs to agent format
-            obs = agent.obs_to_torch(obs)
-            # agent stepping
-            actions = agent.get_action(obs)
-            # env stepping
-            all_obs = env.env.env.get_all_obs()
+            while(1):
+                obs = agent.obs_to_torch(obs)
+                # agent stepping
+                actions = agent.get_action(obs)
+                # env stepping
+                all_obs = env.env.env.get_all_obs()
 
-            obs, _, dones, _ = env.step(actions)
+                obs, _, dones, _ = env.step(actions)
             success = env.env.env.get_success_num()
             print("timestep", timestep, "success:", success, "reward", torch.max(env.env.env._get_rewards()))
             # perform operations for terminated episodes

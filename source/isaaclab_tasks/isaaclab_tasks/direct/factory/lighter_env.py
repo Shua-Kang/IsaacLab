@@ -1161,6 +1161,8 @@ class LighterEnv(DirectRLEnv):
             self.global_camera_data = self.scene.sensors["global_camera"].data.output["rgb"]
     @torch.no_grad()
     def get_all_obs(self):
+        # import pdb; pdb.set_trace()
+        self.render()
         state_dict = {
             "joint_pos": self.joint_pos[:, 0:7],
             "envs_mass": self.envs_mass.unsqueeze(-1),
@@ -2135,8 +2137,9 @@ class LighterEnv(DirectRLEnv):
         physics_sim_view.set_gravity(carb.Float3(*self.cfg.sim.gravity))
     
     def render(self, mode = "rgb_array"):
+        # import pdb; pdb.set_trace()
         if self.enable_global_camera:
-            rgb_all = self.scene.sensors["global_camera"].data.output["rgb"][0:2]  # uint8 tensor, shape [N, H, W, 3]
+            rgb_all = self.scene.sensors["gripper_camera"].data.output["rgb"][:]  # uint8 tensor, shape [N, H, W, 3]
             rgb_0 = rgb_all[0]
             rgb_1 = rgb_all[1]
             from PIL import Image
@@ -2145,8 +2148,8 @@ class LighterEnv(DirectRLEnv):
             if rgb_concat.dtype != torch.uint8:
                 rgb_concat = (rgb_concat.clamp(0, 255).byte())
             rgb_array = rgb_concat.cpu().numpy()
-
+            
             # Image.fromarray(rgb_array).save(os.path.join(self.log_img_save_path, "global_image.png"))
-            # import pdb; pdb.set_trace()
+            
             return rgb_array
                         
