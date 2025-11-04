@@ -225,14 +225,12 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         # run everything in inference mode
         with torch.inference_mode():
             # convert obs to agent format
-            while(1):
-                obs = agent.obs_to_torch(obs)
-                # agent stepping
-                actions = agent.get_action(obs)
-                # env stepping
-                all_obs = env.env.env.get_all_obs()
-
-                obs, _, dones, _ = env.step(actions)
+            obs = agent.obs_to_torch(obs)
+            # agent stepping
+            actions = agent.get_action(obs)
+            # env stepping
+            all_obs = env.env.env.get_all_obs()
+            obs, _, dones, _ = env.step(actions)
             success = env.env.env.get_success_num()
             print("timestep", timestep, "success:", success, "reward", torch.max(env.env.env._get_rewards()))
             # perform operations for terminated episodes
@@ -257,7 +255,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             data_states.append(dict_numpys)
             data_actions.append(actions.cpu().numpy())
             data_dones.append(success.cpu().numpy())
-            if(timestep >= 30):
+            if(timestep >= 120):
                 # save dataset
                 dataset_save_path = os.path.join(args_cli.dataset_save_path, f"{task_name}_mass_{args_cli.mass_low}_{args_cli.mass_high}_seed_{args_cli.seed}_{time.time()}.npz")
                 os.makedirs(args_cli.dataset_save_path, exist_ok=True)
