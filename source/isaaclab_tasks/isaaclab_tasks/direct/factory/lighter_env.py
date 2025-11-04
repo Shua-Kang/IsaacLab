@@ -39,6 +39,7 @@ from isaacsim.core.utils.stage import get_current_stage
 from pxr import PhysxSchema, Usd, UsdPhysics
 from isaaclab.utils.shear_tactile_viz_utils import visualize_penetration_depth, visualize_tactile_shear_image
 import isaaclab.utils.math as math_utils
+from isaaclab.markers import VisualizationMarkersCfg, VisualizationMarkers
 
 import warp as wp
 wp.init()
@@ -244,7 +245,7 @@ class TactileSensingSystem:
             normals_local = -wp_normals_local
 
         
-        save_depth_image = True
+        save_depth_image = False
         if save_depth_image:
             depth_image = penetration_depth.view((self.num_rows, self.num_cols)).cpu().numpy()
             # depth_image = penetration_depth.view((self.num_cols, self.num_rows)).cpu().numpy()
@@ -266,7 +267,7 @@ class TactileSensingSystem:
         # 从穿透点沿法线方向移回穿透深度，得到表面上的点
         closest_points_local = (tactile_points_sphere_local+ penetration_depth.unsqueeze(-1) *normals_local)
         
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         closest_points_world = tf_apply(sphere_quat_w, sphere_pos_w, closest_points_local)
 
 
@@ -848,6 +849,8 @@ class LighterEnv(DirectRLEnv):
         self.stage = None
         self.stage_based_training = False
         self.enable_position_reward = False
+        self.last_time_distance_diff = None
+        self.once_contact = None
 
         super().__init__(cfg, render_mode, **kwargs)
         self.tactile_image_scale = 35
@@ -874,9 +877,35 @@ class LighterEnv(DirectRLEnv):
         self.mass_range = cfg.mass_range
         self.envs_mass = torch.zeros((self.num_envs,), device=self.device)
         self.initial_tactile_image = None
-        
-        
+        self.robot_points_in_world_frame = None
+        self.light_case_right_points_in_world_frame = None
+        self.visualize_marker = False
+        if self.visualize_marker:
+            self.marker_cfg = VisualizationMarkersCfg(
+                prim_path="/World/Visuals/testMarkers",
+                markers={
+                    "marker1": sim_utils.SphereCfg(
+                        radius=0.01,
+                        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0)),
+                    ),
+                    "marker2": sim_utils.SphereCfg(
+                        radius=0.01,
+                        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0)),
+                    ),
+                    "marker3": sim_utils.SphereCfg(
+                        radius=0.01,
+                        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.0, 1.0)),
+                    ),
+                    "marker4": sim_utils.SphereCfg(
+                        radius=0.01,
+                        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 1.0)),
+                    ),
+                }
+            )
+            self.marker = VisualizationMarkers(self.marker_cfg)
 
+            self.marker_lighter_case = VisualizationMarkers(self.marker_cfg)
+        self.update_marker_position()
     def _set_body_inertias(self):
         """Note: this is to account for the asset_options.armature parameter in IGE."""
         inertias = self._robot.root_physx_view.get_inertias()
@@ -1063,6 +1092,7 @@ class LighterEnv(DirectRLEnv):
         #             print(f"警告: modify_collision_properties 未成功作用于 {path}")
 
         # ==================================================================
+    @torch.no_grad()
     def _compute_intermediate_values(self, dt):
         """Get values computed from raw tensors. This includes adding noise."""
         # TODO: A lot of these can probably only be set once?
@@ -1129,7 +1159,7 @@ class LighterEnv(DirectRLEnv):
 
         if self.enable_global_camera:
             self.global_camera_data = self.scene.sensors["global_camera"].data.output["rgb"]
-
+    @torch.no_grad()
     def get_all_obs(self):
         state_dict = {
             "joint_pos": self.joint_pos[:, 0:7],
@@ -1148,7 +1178,7 @@ class LighterEnv(DirectRLEnv):
         if self.enable_tactile_camera:
             state_dict["tactile_camera_image"] = self.tactile_depth_image
         return state_dict
-
+    @torch.no_grad()
     def _get_factory_obs_state_dict(self):
         """Populate dictionaries for the policy and critic."""
         noisy_fixed_pos = self.fixed_pos_obs_frame + self.init_fixed_pos_obs_noise
@@ -1187,7 +1217,7 @@ class LighterEnv(DirectRLEnv):
             "envs_mass": self.envs_mass.unsqueeze(-1),
         }
         return obs_dict, state_dict
-
+    @torch.no_grad()
     def _get_observations(self):
         """Get actor/critic inputs using asymmetric critic."""
         obs_dict, state_dict = self._get_factory_obs_state_dict()
@@ -1218,7 +1248,7 @@ class LighterEnv(DirectRLEnv):
         if len(env_ids) > 0:
             self._reset_buffers(env_ids)
 
-        self.actions = self.ema_factor * action.clone().to(self.device) + (1 - self.ema_factor) * self.actions
+        # self.actions = self.ema_factor * action.clone().to(self.device) + (1 - self.ema_factor) * self.actions
         action =  action[:,0:6]
         # action[:,0] = 1.0
         # print("action", action)
@@ -1400,6 +1430,7 @@ class LighterEnv(DirectRLEnv):
                 f.write(f"time: {time.time()}\n")
         # print("length", self.episode_length_buf, self.max_episode_length)
         time_out = self.episode_length_buf >= self.max_episode_length - 1
+        return time_out, time_out
         out_of_bounds = self.fixed_pos[:, 2] < 0.02
         task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
 
@@ -1441,10 +1472,95 @@ class LighterEnv(DirectRLEnv):
         for rew_name, rew in rew_dict.items():
             self.extras[f"logs_rew_{rew_name}"] = rew.mean()
 
+    def update_marker_position(self):
+        elastomer_right_pos = self.scene["robot"].data.body_pos_w[:,self._robot.body_names.index("elastomer_tip_right")]
+        elastomer_right_quat = self.scene["robot"].data.body_quat_w[:,self._robot.body_names.index("elastomer_tip_right")]
+        base_points = torch.tensor(
+            [[0.03, 0.0, 0.0],
+            [0.0, 0.03, 0.0],
+            [-0.03, 0.0, 0.0],
+            [0.0, -0.03, 0.0]
+            
+            ],
+            device=self.device,
+            dtype=torch.float32,
+        )
+        three_points = base_points.unsqueeze(0).repeat(self.num_envs, 1, 1)
+
+        N, P = three_points.shape[0], three_points.shape[1]
+
+        q1_flat = elastomer_right_quat.repeat_interleave(P, dim=0)     # (N*P, 4)
+        t1_flat = elastomer_right_pos.repeat_interleave(P, dim=0)      # (N*P, 3)
+
+        q2 = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device, dtype=torch.float32)
+        q2_flat = q2.unsqueeze(0).repeat(N*P, 1)                       # (N*P, 4)
+
+        t2_flat = three_points.reshape(N*P, 3).contiguous()            # (N*P, 3)
+
+        _, t_out_flat = torch_utils.tf_combine(q1_flat, t1_flat, q2_flat, t2_flat)  # (N*P, 3)
+        self.robot_points_in_world_frame = t_out_flat.reshape(N, P, 3)
+        
+        light_case_right_pos = self.scene["fixed_asset"].data.body_pos_w[:,self._fixed_asset.body_names.index("link_2")]
+        light_case_right_quat = self.scene["fixed_asset"].data.body_quat_w[:,self._fixed_asset.body_names.index("link_2")]
+        lighter_base_points = torch.tensor(
+            [[-0.03, 0.045, 0 + 0.01],
+            [0.0, 0.045, -0.03+ 0.01],
+            [0.03, 0.045, 0+ 0.01],
+            [0.0, 0.045, 0.03+ 0.01]
+            ],
+            device=self.device,
+            dtype=torch.float32,
+        )
+        lighter_three_points = lighter_base_points.unsqueeze(0).repeat(self.num_envs, 1, 1)
+        # _, self.light_case_right_points_in_world_frame = torch_utils.tf_combine(light_case_right_quat, light_case_right_pos, torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1), light_case_right_points)
+        
+
+        N, P = lighter_three_points.shape[0], lighter_three_points.shape[1]
+
+        q1_flat = light_case_right_quat.repeat_interleave(P, dim=0)     # (N*P, 4)
+        t1_flat = light_case_right_pos.repeat_interleave(P, dim=0)      # (N*P, 3)
+
+        q2 = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device, dtype=torch.float32)
+        q2_flat = q2.unsqueeze(0).repeat(N*P, 1)                       # (N*P, 4)
+
+        t2_flat = lighter_three_points.reshape(N*P, 3).contiguous()            # (N*P, 3)
+
+        _, t_out_flat = torch_utils.tf_combine(q1_flat, t1_flat, q2_flat, t2_flat)  # (N*P, 3)
+        self.light_case_right_points_in_world_frame = t_out_flat.reshape(N, P, 3)
+     
+        
+        if self.visualize_marker:
+            self.marker.visualize(translations=self.robot_points_in_world_frame[0])
+            self.marker_lighter_case.visualize(translations=self.light_case_right_points_in_world_frame[0])
+
+    def calulate_distance_based_rewards(self):
+        self.update_marker_position()
+        # import pdb; pdb.set_trace()
+        current_distance_diff = torch.norm(self.robot_points_in_world_frame - self.light_case_right_points_in_world_frame, p=2, dim=-1).mean(dim=1)
+        # import pdb; pdb.set_trace()
+        if(self.last_time_distance_diff is not None):
+            distance_diff =self.last_time_distance_diff - current_distance_diff 
+            reward = distance_diff
+            self.last_time_distance_diff = current_distance_diff
+        else:
+            self.last_time_distance_diff = current_distance_diff
+            distance_diff = 0
+            reward = torch.zeros((self.num_envs,), device=self.device)
+        return reward
+        
+
+        
+
+
+
+    @torch.no_grad()
     def _get_rewards(self):
+        distance_based_reward = self.calulate_distance_based_rewards()
+        # print(distance_based_reward)
         """Update rewards and compute success statistics."""
         # Get successful and failed envs at current timestep
         if_contact = torch.sum(self.scene["elastomer_contact_sensor"].data.net_forces_w, dim = [1,2]) != 0
+        self.once_contact = torch.where(if_contact, 1, self.once_contact)
         if self.last_time_joints is not None:
             lighter_joints = self._fixed_asset.data.joint_pos[:,1]
             rewards = torch.zeros((self.num_envs,), device=self.device)
@@ -1489,7 +1605,7 @@ class LighterEnv(DirectRLEnv):
             self.update_last_time_angle = torch.zeros((self.num_envs,), device=self.device)
             
             return angle_reward
-        angle_reward = calculate_angle_reward()
+        # angle_reward = calculate_angle_reward()
         # angle_reward = torch.where(self.stage == 1, angle_reward, 0)
 
         def position_reward():
@@ -1508,15 +1624,18 @@ class LighterEnv(DirectRLEnv):
             self.last_time_position = current_pos
             self.update_last_time_position = torch.zeros((self.num_envs,), device=self.device)
             return position_reward
-        pos_reward = position_reward()
+        # pos_reward = position_reward()
 
         # print(angle_reward)
         positive_rewards = rewards > 0
         open_rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact & positive_rewards) + 0.0001 * if_contact
         # import pdb; pdb.set_trace()
         task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
-        open_rewards = open_rewards + 10.0 * task_done * if_contact
 
+        distance_based_reward = torch.where(self.once_contact == 1, 0, distance_based_reward)
+        # print("open_rewards, if_contact, task_done, distance_based_reward", open_rewards, if_contact, task_done, distance_based_reward)
+        open_rewards = open_rewards + 10.0 * task_done * if_contact + distance_based_reward  * 100
+        # open_rewards = distance_based_reward  * 100
         # self.accumlated_rewards += open_rewards
         # print("rewards", rewards.mean())
         if(self.stage_based_training):
@@ -1527,7 +1646,7 @@ class LighterEnv(DirectRLEnv):
         if(self.enable_position_reward):
             rewards = open_rewards + angle_reward + pos_reward
         else:
-            rewards = open_rewards + angle_reward * 100
+            rewards = open_rewards * 100
         # print("angle , pos, open_rewards", angle_reward, pos_reward, open_rewards)
         return rewards
 
@@ -1619,6 +1738,11 @@ class LighterEnv(DirectRLEnv):
         if(self.update_last_time_position is not None):
             self.update_last_time_position[env_ids] = torch.ones((len(env_ids),), device=self.device)
 
+        if(self.once_contact is None):
+            self.once_contact = torch.zeros((self.num_envs,), device=self.device)
+        else:
+            
+            self.once_contact[env_ids] = torch.zeros((len(env_ids),), device=self.device)
 
         if(self.stage is None):
             self.stage = torch.ones((len(env_ids),), device=self.device)
@@ -1799,8 +1923,8 @@ class LighterEnv(DirectRLEnv):
         # )
         # fixed_pos_init_rand = fixed_pos_init_rand @ torch.diag(fixed_asset_init_pos_rand)
         fixed_state[:, 0:3] += torch.tensor([0, 0, 0], device=self.device) + self.scene.env_origins[env_ids]
-        fixed_state[:, 0] += (torch.rand((len(env_ids)), dtype=torch.float32, device=self.device) - 0.5) * 0.001
-        fixed_state[:, 1] += (torch.rand((len(env_ids)), dtype=torch.float32, device=self.device) - 0.5) * 0.001
+        # fixed_state[:, 0] += (torch.rand((len(env_ids)), dtype=torch.float32, device=self.device) - 0.5) * 0.001
+        # fixed_state[:, 1] += (torch.rand((len(env_ids)), dtype=torch.float32, device=self.device) - 0.5) * 0.001
         # (1.b.) Orientation
         # fixed_orn_init_yaw = np.deg2rad(self.cfg_task.fixed_asset_init_orn_deg + 90)
         # fixed_orn_yaw_range = np.deg2rad(self.cfg_task.fixed_asset_init_orn_range_deg)
@@ -1810,7 +1934,7 @@ class LighterEnv(DirectRLEnv):
         fixed_orn_euler = torch.zeros((len(env_ids), 3), dtype=torch.float32, device=self.device)
         fixed_orn_euler[:, 0] = 0 + 1.5707963 
         fixed_orn_euler[:, 1] = 0 
-        fixed_orn_euler[:, 2] = torch.randn((len(env_ids)), dtype=torch.float32, device=self.device) * 0.8   
+        fixed_orn_euler[:, 2] = torch.randn((len(env_ids)), dtype=torch.float32, device=self.device) * 0.3
         # fixed_orn_euler[:, 2] = torch.randn((len(env_ids)), dtype=torch.float32, device=self.device) * 0.0   
         fixed_orn_quat = torch_utils.quat_from_euler_xyz(
             fixed_orn_euler[:, 0], fixed_orn_euler[:, 1], fixed_orn_euler[:, 2]
@@ -1867,7 +1991,7 @@ class LighterEnv(DirectRLEnv):
             # above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
             # above_fixed_pos[:, 1] += 0.03
             above_fixed_pos[:, 1] += 0.03
-            # above_fixed_pos[:, 2] += 0.07
+            above_fixed_pos[:, 2] += 0.01
             rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
             above_fixed_pos_rand = 0.2 * (rand_sample - 0.5)  # [-1, 1]
             hand_init_pos_rand = torch.tensor(self.cfg_task.hand_init_pos_noise, device=self.device)

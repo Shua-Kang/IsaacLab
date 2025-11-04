@@ -532,7 +532,7 @@ class FactoryTaskNutThreadCfg(FactoryEnvCfg):
 class FactoryTaskLighterCfg(LighterEnvCfg):
     task_name = "lighter"
     task = LighterTaskCfg()
-    episode_length_s = 3.0
+    episode_length_s = 5.0
     terminations = TerminationsCfg(
         time_out=None,
         object_reached_goal=None,
