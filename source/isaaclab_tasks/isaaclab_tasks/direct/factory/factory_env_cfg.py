@@ -269,7 +269,7 @@ class FactoryEnvCfg(DirectRLEnvCfg):
     # )
 
 class LighterEnvCfg(DirectRLEnvCfg):
-    decimation = 8
+    decimation = 4
     action_space = 6
     # num_*: will be overwritten to correspond to obs_order, state_order.
     observation_space = 28
