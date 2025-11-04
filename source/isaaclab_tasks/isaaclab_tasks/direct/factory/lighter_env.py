@@ -1628,7 +1628,8 @@ class LighterEnv(DirectRLEnv):
 
         # print(angle_reward)
         positive_rewards = rewards > 0
-        open_rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact & positive_rewards) + 0.0001 * if_contact
+        # open_rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact & positive_rewards) + 0.0001 * if_contact
+        open_rewards = (1 + lighter_joints + 1.6) * rewards * (if_contact) + 0.0001 * if_contact
         # import pdb; pdb.set_trace()
         task_done = self._fixed_asset.data.joint_pos[:,1] > -0.01
 
