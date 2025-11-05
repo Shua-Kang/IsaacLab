@@ -243,10 +243,10 @@ def main() -> None:
                     # apply actions
                     import random
                     # actions[:,1] = random.uniform(-1.0, 1.0)
-                    actions[:,5] = 1
+                    # actions[:,5] = 1
                     # actions[:,2] = -1
                     # actions[:,1] = 0.0
-                    actions = actions[:,0:6] 
+                    actions = actions[:,0:6]  * 20
                     # print(actions)
                     env.step(actions)
                     # print("Reward", env.step(actions)[1].item())
