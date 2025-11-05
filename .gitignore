@@ -76,4 +76,5 @@ checkpoints/
 
 *.txt
 dataset/
+dataset_2/
 saved_results/
