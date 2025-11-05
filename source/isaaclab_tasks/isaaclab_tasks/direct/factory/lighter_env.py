@@ -823,7 +823,8 @@ class LighterEnv(DirectRLEnv):
         self.update_last_time_angle = None
         self.enable_global_camera = cfg.enable_global_camera
         self.enable_gripper_camera = cfg.enable_gripper_camera
-        self.enable_tactile_camera = cfg.enable_tactile_camera
+        # self.enable_tactile_camera = cfg.enable_tactile_camera
+        self.enable_tactile_camera = True
         self.enable_tactile = cfg.enable_tactile
         self.update_last_time_position = None
         self.last_time_position = None
@@ -964,7 +965,7 @@ class LighterEnv(DirectRLEnv):
 
         if self.enable_tactile_camera:
             self._tactile_camera = TiledCamera(self.cfg.tactile_camera)
-
+            self._tactile_left_finger_camera = TiledCamera(self.cfg.tactile_left_finger_camera)
         
         self.scene.clone_environments(copy_from_source=True)
         self.sim.step()
@@ -989,6 +990,7 @@ class LighterEnv(DirectRLEnv):
 
         if self.enable_tactile_camera:
             self.scene.sensors["tactile_camera"] = self._tactile_camera
+            self.scene.sensors["tactile_left_finger_camera"] = self._tactile_left_finger_camera
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
@@ -1206,7 +1208,7 @@ class LighterEnv(DirectRLEnv):
         obs_dict, state_dict = self._get_factory_obs_state_dict()
         obs_tensors = factory_utils.collapse_obs_dict(obs_dict, self.cfg.obs_order + ["prev_actions"])
         state_tensors = factory_utils.collapse_obs_dict(state_dict, self.cfg.state_order + ["prev_actions"])
-        debug = False
+        debug = True
 
         if debug:
             if self.enable_gripper_camera:
@@ -1214,7 +1216,18 @@ class LighterEnv(DirectRLEnv):
             if self.enable_global_camera:
                 torchvision.utils.save_image(self.scene.sensors["global_camera"].data.output["rgb"].transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.log_img_save_path, "global_image.png" ) )
             if self.enable_tactile_camera:
-                torchvision.utils.save_image(self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.log_img_save_path, "tactile_depth_image.png" ) )
+                # pop up a window to show the tactile image
+                tactile_depth = self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"]
+                tactile_left_finger_depth = self.scene.sensors["tactile_left_finger_camera"].data.output["distance_to_image_plane"]
+
+                depth_np = tactile_depth[0].squeeze().cpu().numpy()  # shape [H, W]
+                left_finger_depth_np = tactile_left_finger_depth[0].squeeze().cpu().numpy()  # shape [H, W]
+                depth_norm = cv2.normalize(depth_np, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                left_finger_depth_norm = cv2.normalize(left_finger_depth_np, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                cv2.imshow("tactile_image", depth_norm)
+                cv2.imshow("tactile_left_finger_image", left_finger_depth_norm)
+                cv2.waitKey(1)
+                # torchvision.utils.save_image(self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].transpose(1, 3).transpose(2, 3), os.path.join(self.log_img_save_path, "tactile_depth_image.png" ) )
 
         return {"policy": obs_tensors, "critic": state_tensors}
 

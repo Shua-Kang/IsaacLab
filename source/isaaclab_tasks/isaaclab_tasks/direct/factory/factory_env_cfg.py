@@ -469,6 +469,25 @@ class LighterEnvCfg(DirectRLEnvCfg):
         update_latest_camera_pose = True
     )
 
+    tactile_left_finger_camera : TiledCameraCfg = TiledCameraCfg(
+        prim_path="/World/envs/env_.*/Robot/franka_bak/elastomer_tip_left/Camera/tactile_camera",
+        update_period=0.0,
+        height=320,
+        width=240,
+        data_types=["distance_to_image_plane"],  # 等效于 'depth'
+        depth_clipping_behavior="zero",  # (near_plane, far_plane)
+        offset=CameraCfg.OffsetCfg(
+            pos=(0.0, 0.0, -0.020342857142857145), rot=(0, 0, 0, 1), convention="ros"
+            # pos=(0.0, 0.0, -0.021), rot=(0, 0, 0, 1), convention="ros"
+        ),
+        # offset=CameraCfg.OffsetCfg(
+        #         pos=(0.13, 0.0, -0.15), rot=(-0.70614, 0.03701, 0.03701, -0.70614), convention="ros"
+        #     ),
+        spawn=sim_utils.PinholeCameraCfg(),
+        debug_vis=True,
+        update_latest_camera_pose = True
+    )
+
     global_camera: TiledCameraCfg = TiledCameraCfg(
         # 注意：不挂在 Robot 下，而是挂在每个 env 自己的 Cameras 目录
         prim_path="/World/envs/env_.*/Robot/franka_bak/Camera/global_camera",
