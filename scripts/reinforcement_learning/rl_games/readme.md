@@ -8,5 +8,5 @@ Follow the official [IsaacLab 2.2 installation guide](https://isaac-sim.github.i
 ```bash
 cd IsaacLab
 
-./isaaclab.sh -p ./scripts/reinforcement_learning/rl_games/evaluate.py --task Isaac-Factory-Lighter-Direct-v0 --num_envs 16 --headless --log_dir saved_results --video
+./isaaclab.sh -p ./scripts/reinforcement_learning/rl_games/evaluate.py --task Isaac-Factory-Lighter-Direct-v0 --num_envs 16 --headless --log_dir saved_results --video --mass 0.025
 ```
