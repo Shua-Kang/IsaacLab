@@ -76,34 +76,21 @@ def _warp_depth_normal_kernel(
     
     out_normal[i] = n_out
 class TactileSensingSystem:
-    """
-    一个管理机器人手指（传感器）和Peg（物体）之间触觉模拟的类。
-    使用SDF来计算穿透深度并生成触觉数据。
-    """
+
 
     def __init__(self, env: "FactoryEnv", num_rows_per_finger: int = 20, num_cols_per_finger: int = 20 ):
-        """
-        通过引用环境中的机器人和物体来初始化触觉系统。
 
-        Args:
-            env (FactoryEnv): 对主环境的引用。
-            num_rows_per_finger (int): 每个手指上传感器点的行数。
-            num_cols_per_finger (int): 每个手指上传感器点的列数。
-        """
         print("[INFO] Initializing Tactile Sensing System...")
         self.env = env
         self.device = env.device
         self.num_envs = env.num_envs
 
-        # 获取对机器人和被抓取物体的引用
         self._robot = self.env._robot
         self._peg = self.env._held_asset
 
-        # 获取传感器（手指）的body索引
         self.left_finger_idx = self._robot.body_names.index("elastomer_left")
         self.right_finger_idx = self._robot.body_names.index("elastomer_right")
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        # 注意：这里的相对路径'..'的数量可能需要根据您实际的文件结构进行调整
         self.peg_stl_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "my_assets_new", "peg", "peg.stl")
         self.elastomer_stl_path = os.path.join(current_dir, "..", "..", "..", "..", "..", "my_assets_new", "peg", "extruded_elastomer_transformed.stl")
         print(f"[INFO] Peg STL path: {self.peg_stl_path}")
@@ -111,24 +98,21 @@ class TactileSensingSystem:
 
         self.num_rows_per_finger = num_rows_per_finger
         self.num_cols_per_finger = num_cols_per_finger
-        # 在每个手指表面生成触觉点
         self._generate_tactile_points(num_rows=num_rows_per_finger, num_cols=num_cols_per_finger)
 
-        # 为Peg物体初始化SDF
         self._initialize_peg_sdf()
         print("[INFO] Tactile Sensing System Initialized.")
         
-        # --- 新增：可视化相关的控制参数 ---
-        self.enable_tactile_visualization = False  # 总开关
+        self.enable_tactile_visualization = False
         self.enable_debug_visualization = False
-        self.visualization_counter = 0      # 帧计数器
-        self.visualization_interval = 10   # 每隔多少帧显示一次
-        self.colormap = plt.get_cmap("jet") # 用于生成热力图的颜色映射
+        self.visualization_counter = 0 
+        self.visualization_interval = 10 
+        self.colormap = plt.get_cmap("jet")
         print("[INFO] Tactile Sensing System Initialized.")
 
-        self.tactile_kn = 1.0  # 法向刚度 (N/m), 建议使用一个较大的值
-        self.tactile_kt = 0.1    # 切向（剪切）刚度 (N*s/m)
-        self.tactile_mu = 2.0    # 动摩擦系数 (无单位), 新增参数
+        self.tactile_kn = 1.0 
+        self.tactile_kt = 0.1   
+        self.tactile_mu = 2.0  
         self.tactile_kd = 10.0
         self.depth_calculation_method = "warp"
 
@@ -141,8 +125,6 @@ class TactileSensingSystem:
         #     self.env.scene.add_camera("tactile_camera", self.env.cfg.TACTILE_CAMERA_CFG)
         
     def calculate_normal_shear_force(self, env_id: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """在每个仿真步骤中被调用，以计算并施加触觉力。"""
-        # 1. 获取球体和立方体的当前姿态
     
         sphere_pos_w = self._peg.data.root_pos_w[env_id]
         sphere_quat_w = self._peg.data.root_quat_w[env_id]
@@ -154,7 +136,6 @@ class TactileSensingSystem:
         cube_linvel_w = self._robot.data.body_lin_vel_w[:, self.left_finger_idx][env_id]
         cube_angvel_w = self._robot.data.body_ang_vel_w[:, self.left_finger_idx][env_id]
         
-        # 2. 将局部触觉点转换到世界坐标系
         tactile_points_world = tf_apply(
             cube_quat_w, cube_pos_w, self.tactile_points_left_local[env_id]
         )
@@ -1029,7 +1010,7 @@ class LighterEnv(DirectRLEnv):
         # 在场景中创建一个新的物理材质 Prim。路径可以自定义，"/World/Looks/" 是常用约定
         soft_material_path = "/World/Looks/SoftElastomerMaterial"
         spawn_rigid_body_material(prim_path=soft_material_path, cfg=soft_material_cfg)
-        print(f"已创建自定义物理材质于: {soft_material_path}")
+        print(f"Applied {soft_material_path}")
 
         # --- 步骤 2: 将新材质应用到每个环境的机器人手指上 ---
         
@@ -1733,7 +1714,7 @@ class LighterEnv(DirectRLEnv):
             # torchvision.utils.save_image(self.initial_rgb_image.transpose(1, 3).transpose(2, 3) / 255.0, os.path.join(self.log_img_save_path, "initial_rgb_image.png" ) )
 
     def _reset_idx(self, env_ids):
-        print("Success number: ", self.get_success_str())
+        print("success_rate", self.get_success_str())
         """We assume all envs will always be reset at the same time."""
         if(self.update_last_time_angle is not None):
             self.update_last_time_angle[env_ids] = torch.ones((len(env_ids),), device=self.device)
@@ -2136,20 +2117,28 @@ class LighterEnv(DirectRLEnv):
 
         physics_sim_view.set_gravity(carb.Float3(*self.cfg.sim.gravity))
     
-    def render(self, mode = "rgb_array"):
-        # import pdb; pdb.set_trace()
+    def render(self, mode="rgb_array"):
+        import math
         if self.enable_global_camera:
-            rgb_all = self.scene.sensors["gripper_camera"].data.output["rgb"][:]  # uint8 tensor, shape [N, H, W, 3]
-            rgb_0 = rgb_all[0]
-            rgb_1 = rgb_all[1]
-            from PIL import Image
+            rgb_all = self.scene.sensors["global_camera"].data.output["rgb"][:]
+            rgb_all = rgb_all.clamp(0, 255).byte().cpu().numpy()
             
-            rgb_concat = torch.cat([rgb_0, rgb_1], dim=0)
-            if rgb_concat.dtype != torch.uint8:
-                rgb_concat = (rgb_concat.clamp(0, 255).byte())
-            rgb_array = rgb_concat.cpu().numpy()
-            
-            # Image.fromarray(rgb_array).save(os.path.join(self.log_img_save_path, "global_image.png"))
-            
-            return rgb_array
+            N, H, W, C = rgb_all.shape
+
+            grid_size = math.ceil(math.sqrt(N))
+            total_slots = grid_size * grid_size
+
+            if total_slots > N:
+                pad_count = total_slots - N
+                black_img = np.zeros((pad_count, H, W, C), dtype=np.uint8)
+                rgb_all = np.concatenate([rgb_all, black_img], axis=0)
+
+            rows = []
+            for i in range(grid_size):
+                row_imgs = rgb_all[i * grid_size:(i + 1) * grid_size]
+                row = np.concatenate(row_imgs, axis=1)
+                rows.append(row)
+            grid_img = np.concatenate(rows, axis=0) 
+
+            return grid_img
                         

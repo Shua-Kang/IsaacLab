@@ -269,7 +269,7 @@ class FactoryEnvCfg(DirectRLEnvCfg):
     # )
 
 class LighterEnvCfg(DirectRLEnvCfg):
-    decimation = 4
+    decimation = 1
     action_space = 6
     # num_*: will be overwritten to correspond to obs_order, state_order.
     observation_space = 28
@@ -472,7 +472,7 @@ class LighterEnvCfg(DirectRLEnvCfg):
     global_camera: TiledCameraCfg = TiledCameraCfg(
         # 注意：不挂在 Robot 下，而是挂在每个 env 自己的 Cameras 目录
         prim_path="/World/envs/env_.*/Robot/franka_bak/Camera/global_camera",
-        update_period=0.2,
+        update_period=0.0,
         height=256,
         width=256,
         data_types=["rgb", "distance_to_image_plane"],  # 深度同等价

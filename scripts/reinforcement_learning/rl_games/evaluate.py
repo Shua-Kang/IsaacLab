@@ -21,28 +21,19 @@ parser.add_argument(
 )
 parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
+parser.add_argument("--log_dir", type=str, default=None, help="Directory to save logs.")
 parser.add_argument(
     "--agent", type=str, default="rl_games_cfg_entry_point", help="Name of the RL agent configuration entry point."
 )
-parser.add_argument("--checkpoint", type=str, default=None, help="Path to model checkpoint.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
-parser.add_argument(
-    "--use_pretrained_checkpoint",
-    action="store_true",
-    help="Use the pre-trained checkpoint from Nucleus.",
-)
-parser.add_argument(
-    "--use_last_checkpoint",
-    action="store_true",
-    help="When no checkpoint provided, use the last saved model. Otherwise use the best saved model.",
-)
+
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 
-parser.add_argument("--dataset_save_path", type=str, default=None, help="Path to save the dataset.")
-parser.add_argument("--mass_low", type=float, default=0.001, help="Lower bound for mass initialization.")
-parser.add_argument("--mass_high", type=float, default=0.01, help="Upper bound for mass initialization.")
-parser.add_argument("--add_mass_observation", action="store_true", default=False, help="Add mass observation to the observation space.")
-
+parser.add_argument(
+    "--mass",
+    type=float,
+    default=0.025,
+)
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -116,25 +107,6 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     log_root_path = os.path.abspath(log_root_path)
     print(f"[INFO] Loading experiment from directory: {log_root_path}")
     # find checkpoint
-    if args_cli.use_pretrained_checkpoint:
-        resume_path = get_published_pretrained_checkpoint("rl_games", train_task_name)
-        if not resume_path:
-            print("[INFO] Unfortunately a pre-trained checkpoint is currently unavailable for this task.")
-            return
-    elif args_cli.checkpoint is None:
-        # specify directory for logging runs
-        run_dir = agent_cfg["params"]["config"].get("full_experiment_name", ".*")
-        # specify name of checkpoint
-        if args_cli.use_last_checkpoint:
-            checkpoint_file = ".*"
-        else:
-            # this loads the best checkpoint
-            checkpoint_file = f"{agent_cfg['params']['config']['name']}.pth"
-        # get path to previous checkpoint
-        resume_path = get_checkpoint_path(log_root_path, run_dir, checkpoint_file, other_dirs=["nn"])
-    else:
-        resume_path = retrieve_file_path(args_cli.checkpoint)
-    log_dir = os.path.dirname(os.path.dirname(resume_path))
 
     # wrap around environment for rl-games
     rl_device = agent_cfg["params"]["config"]["device"]
@@ -147,12 +119,12 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.enable_tactile_camera = True
     env_cfg.enable_gripper_camera = True
     env_cfg.enable_global_camera = True
-    env_cfg.mass_range = [args_cli.mass_low, args_cli.mass_high]
-    if(args_cli.add_mass_observation):
-        env_cfg.obs_order.append("envs_mass")
-        env_cfg.observation_space += 1
-        env_cfg.state_order.append("envs_mass")
-        env_cfg.state_space += 1
+    
+
+    video_dir = os.path.join(args_cli.log_dir, f"mass_{args_cli.mass}_videos")
+    os.makedirs(video_dir, exist_ok=True)
+    env_cfg.mass_range = [args_cli.mass, args_cli.mass]
+
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
 
@@ -163,7 +135,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # wrap for video recording
     if args_cli.video:
         video_kwargs = {
-            "video_folder": os.path.join(log_root_path, log_dir, "videos", "play"),
+            "video_folder": os.path.join(video_dir, "play"),
             "step_trigger": lambda step: step == 0,
             "video_length": args_cli.video_length,
             "disable_logger": True,
@@ -182,11 +154,6 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     )
     env_configurations.register("rlgpu", {"vecenv_type": "IsaacRlgWrapper", "env_creator": lambda **kwargs: env})
 
-    # load previously trained model
-    agent_cfg["params"]["load_checkpoint"] = True
-    agent_cfg["params"]["load_path"] = resume_path
-    print(f"[INFO]: Loading model checkpoint from: {agent_cfg['params']['load_path']}")
-
     # set number of actors into agent config
     agent_cfg["params"]["config"]["num_actors"] = env.unwrapped.num_envs
     # create runner from rl-games
@@ -194,8 +161,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     runner.load(agent_cfg)
     # obtain the agent from the runner
     agent: BasePlayer = runner.create_player()
-    agent.restore(resume_path)
-    agent.reset()
+    # agent.restore(resume_path)
+    # agent.reset()
 
     dt = env.unwrapped.step_dt
 
@@ -213,26 +180,26 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # note: We simplified the logic in rl-games player.py (:func:`BasePlayer.run()`) function in an
     #   attempt to have complete control over environment stepping. However, this removes other
     #   operations such as masking that is used for multi-agent learning by RL-Games.
-    
-    if(args_cli.dataset_save_path is not None):
-        data_states = []
-        data_actions = []
-        data_dones = []
+
     
     while simulation_app.is_running():
         start_time = time.time()
-        print(f"[INFO] Timestep: {timestep}", end="\r")
         # run everything in inference mode
         with torch.inference_mode():
             # convert obs to agent format
-            obs = agent.obs_to_torch(obs)
-            # agent stepping
-            actions = agent.get_action(obs)
-            # env stepping
-            all_obs = env.env.env.get_all_obs()
+            # obs = agent.obs_to_torch(obs)
+            
+            ## ************************************************
+            ## Get observations from the environment and predict the actions
+
+            all_obs = env.env.env.env.get_all_obs()
+            actions = torch.tensor(np.random.uniform(-1.0, 1.0, size=(env.unwrapped.num_envs, env.action_space.shape[0])).astype(np.float32), device = env_cfg.sim.device)
+
+            ## ************************************************
+
             obs, _, dones, _ = env.step(actions)
-            success = env.env.env.get_success_num()
-            print("timestep", timestep, "success:", success, "reward", torch.max(env.env.env._get_rewards()))
+            success = env.env.env.env.get_success_str()
+            print("Evaluation Mass", args_cli.mass ,"timestep", timestep, "success rate:", success)
             # perform operations for terminated episodes
             if len(dones) > 0:
                 # reset rnn state for terminated episodes
@@ -243,30 +210,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             timestep += 1
             # exit the play loop after recording one video
             if timestep == args_cli.video_length:
+                print(f"[INFO] Recorded {args_cli.video_length} steps, exiting...")
                 break
-        if args_cli.dataset_save_path is not None:
-            if args_cli.video:
-                pass
-            else:
-                timestep += 1
-
-            # convert all_obs from dict to numpy            
-            dict_numpys = {key: v.cpu().numpy() for key, v in zip(all_obs.keys(), all_obs.values())}
-            data_states.append(dict_numpys)
-            data_actions.append(actions.cpu().numpy())
-            data_dones.append(success.cpu().numpy())
-            if(timestep >= 220):
-                # save dataset
-                dataset_save_path = os.path.join(args_cli.dataset_save_path, f"{task_name}_mass_{args_cli.mass_low}_{args_cli.mass_high}_seed_{args_cli.seed}_{time.time()}.npz")
-                os.makedirs(args_cli.dataset_save_path, exist_ok=True)
-                npz_dict = {
-                    "states":  np.array(data_states,  dtype=object),
-                    "actions": np.array(data_actions, dtype=object),
-                    "dones":   np.array(data_dones,   dtype=object),
-                }
-                np.savez_compressed(dataset_save_path, **npz_dict, allow_pickle=True)
-                print(f"\n[INFO] Dataset saved to: {dataset_save_path}")
-                break
+        
         # time delay for real-time evaluation
         sleep_time = dt - (time.time() - start_time)
         if args_cli.real_time and sleep_time > 0:

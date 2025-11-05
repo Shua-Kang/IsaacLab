@@ -73,3 +73,9 @@ log_text/
 nohup.out
 
 checkpoints/
+
+*.txt
+dataset/
+dataset_2/
+dataset*/
+saved_results/
