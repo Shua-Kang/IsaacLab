@@ -43,8 +43,15 @@ parser.add_argument(
     help="if toggled, this experiment will be tracked with Weights and Biases",
 )
 parser.add_argument("--export_io_descriptors", action="store_true", default=False, help="Export IO descriptors.")
-parser.add_argument("--mass_low", type=float, default=0.001, help="Lower bound for mass initialization.")
-parser.add_argument("--mass_high", type=float, default=0.01, help="Upper bound for mass initialization.")
+# parser.add_argument("--mass_low", type=float, default=0.001, help="Lower bound for mass initialization.")
+# parser.add_argument("--mass_high", type=float, default=0.01, help="Upper bound for mass initialization.")
+parser.add_argument(
+    "--mass_list",
+    type=float,
+    nargs="+",
+    default=None,
+    help="A list of masses to use for initialization (space separated, e.g. --mass_list 0.1 0.01 0.05).",
+)
 parser.add_argument("--add_mass_observation", action="store_true", default=False, help="Add mass observation to the observation space.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -140,7 +147,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     print(f"[INFO] Logging experiment in directory: {log_root_path}")
     # specify directory for logging runs
     # log_dir = agent_cfg["params"]["config"].get("full_experiment_name", datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
-    log_dir = args_cli.exp_name + "_" + str(args_cli.mass_high) + "_" + str(args_cli.mass_low) + "_" + ("True" if args_cli.add_mass_observation else "False") + "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") if args_cli.exp_name is not None else datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_dir = args_cli.exp_name + "_" + str(args_cli.mass_list) + "_" + ("True" if args_cli.add_mass_observation else "False") + "_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") if args_cli.exp_name is not None else datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     # set directory into agent config
     # logging directory path: <train_dir>/<full_experiment_name>
     agent_cfg["params"]["config"]["train_dir"] = log_root_path
@@ -174,7 +181,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.enable_tactile_camera = False
     env_cfg.enable_gripper_camera = False
     env_cfg.enable_global_camera = False
-    env_cfg.mass_range = [args_cli.mass_low, args_cli.mass_high]
+    env_cfg.mass_range = args_cli.mass_list
     if(args_cli.add_mass_observation):
         env_cfg.obs_order.append("envs_mass")
         env_cfg.observation_space += 1

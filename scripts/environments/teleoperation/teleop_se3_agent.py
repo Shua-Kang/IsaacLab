@@ -246,11 +246,15 @@ def main() -> None:
                     # actions[:,5] = 1
                     # actions[:,2] = -1
                     # actions[:,1] = 0.0
+                    print(actions)
                     actions = actions[:,0:6]  * 20
                     # print(actions)
                     env.step(actions)
                     # print("Reward", env.step(actions)[1].item())
-                    env.get_all_obs()
+                    try:
+                        env.get_all_obs()
+                    except Exception as e:
+                        pass
                     
                 else:
                     env.sim.render()

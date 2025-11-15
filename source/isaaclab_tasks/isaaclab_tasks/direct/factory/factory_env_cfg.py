@@ -27,6 +27,7 @@ OBS_DIM_CFG = {
     "fixed_pos": 3,
     "fixed_quat": 4,
     "envs_mass": 1,
+    "contact_force": 3,
 }
 
 STATE_DIM_CFG = {
@@ -47,6 +48,7 @@ STATE_DIM_CFG = {
     "pos_threshold": 3,
     "rot_threshold": 3,
     "envs_mass": 1,
+    "contact_force": 3,
 }
 
 
@@ -269,16 +271,16 @@ class FactoryEnvCfg(DirectRLEnvCfg):
     # )
 
 class LighterEnvCfg(DirectRLEnvCfg):
-    decimation = 1
+    decimation = 4
     action_space = 6
     # num_*: will be overwritten to correspond to obs_order, state_order.
-    observation_space = 28
-    state_space = 72
+    observation_space = 31
+    state_space = 75
     enable_global_camera = False
     enable_gripper_camera = False
     enable_tactile_camera = False
     enable_tactile = False
-    mass_range = [0.01, 0.001]
+    mass_range = [0.1, 0.01, 0.05]
     obs_order: list = [
         "fingertip_pos",
         "fingertip_quat",
@@ -287,6 +289,7 @@ class LighterEnvCfg(DirectRLEnvCfg):
         "lighter_joints",
         "fixed_pos",
         "fixed_quat",
+        "contact_force",
     ]
     state_order: list = [
         "fingertip_pos",
@@ -299,7 +302,8 @@ class LighterEnvCfg(DirectRLEnvCfg):
         "lighter_joints",
         "held_quat",
         "fixed_pos",
-        "fixed_quat",
+        "fixed_quat",   
+        "contact_force",
     ]
 
     task_name: str = "lighter"  # peg_insert, gear_mesh, nut_thread
@@ -308,7 +312,7 @@ class LighterEnvCfg(DirectRLEnvCfg):
     ctrl: CtrlCfg = CtrlCfg()
     viewer = ViewerCfg(eye=(20.0, 20.0, 20.0))
     sim: SimulationCfg = SimulationCfg(
-        render_interval=1,
+        render_interval=8,
         device="cuda:0",
         dt=1 / 120,
         gravity=(0.0, 0.0, -9.81),
@@ -331,7 +335,7 @@ class LighterEnvCfg(DirectRLEnvCfg):
 
     )
 
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=512, env_spacing=4.0, clone_in_fabric=False , replicate_physics = True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=512, env_spacing=2.0, clone_in_fabric=False , replicate_physics = True)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     usd_path_raw = os.path.join(
         current_dir,
