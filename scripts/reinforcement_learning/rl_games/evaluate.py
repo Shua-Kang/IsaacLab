@@ -30,9 +30,11 @@ parser.add_argument("--seed", type=int, default=None, help="Seed used for the en
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 
 parser.add_argument(
-    "--mass",
+    "--mass_list",
     type=float,
-    default=0.025,
+    nargs="+",
+    default=None,
+    help="A list of masses to use for initialization (space separated, e.g. --mass_list 0.1 0.01 0.05).",
 )
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -123,7 +125,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     video_dir = os.path.join(args_cli.log_dir, f"mass_{args_cli.mass}_videos")
     os.makedirs(video_dir, exist_ok=True)
-    env_cfg.mass_range = [args_cli.mass, args_cli.mass]
+    env_cfg.mass_range = args_cli.mass_list
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)

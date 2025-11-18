@@ -262,7 +262,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             data_states.append(dict_numpys)
             data_actions.append(actions.cpu().numpy())
             data_dones.append(success.cpu().numpy())
-            if(timestep >= 220):
+            if(timestep >= 150):
                 # save dataset
                 dataset_save_path = os.path.join(args_cli.dataset_save_path, f"{task_name}_mass_{args_cli.mass_list}_seed_{args_cli.seed}_{time.time()}.npz")
                 os.makedirs(args_cli.dataset_save_path, exist_ok=True)
