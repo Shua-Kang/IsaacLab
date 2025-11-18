@@ -79,4 +79,6 @@ dataset/
 dataset_2/
 dataset*/
 saved_results/
-new_data_three_masses_0.01_0.1_0.05.npz
+
+*.npz
+*.npy
