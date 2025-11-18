@@ -39,8 +39,15 @@ parser.add_argument(
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 
 parser.add_argument("--dataset_save_path", type=str, default=None, help="Path to save the dataset.")
-parser.add_argument("--mass_low", type=float, default=0.001, help="Lower bound for mass initialization.")
-parser.add_argument("--mass_high", type=float, default=0.01, help="Upper bound for mass initialization.")
+# parser.add_argument("--mass_low", type=float, default=0.001, help="Lower bound for mass initialization.")
+# parser.add_argument("--mass_high", type=float, default=0.01, help="Upper bound for mass initialization.")
+parser.add_argument(
+    "--mass_list",
+    type=float,
+    nargs="+",
+    default=None,
+    help="A list of masses to use for initialization (space separated, e.g. --mass_list 0.1 0.01 0.05).",
+)
 parser.add_argument("--add_mass_observation", action="store_true", default=False, help="Add mass observation to the observation space.")
 
 # append AppLauncher cli args
@@ -147,7 +154,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.enable_tactile_camera = True
     env_cfg.enable_gripper_camera = True
     env_cfg.enable_global_camera = True
-    env_cfg.mass_range = [args_cli.mass_low, args_cli.mass_high]
+    env_cfg.mass_range = args_cli.mass_list
     if(args_cli.add_mass_observation):
         env_cfg.obs_order.append("envs_mass")
         env_cfg.observation_space += 1
@@ -257,7 +264,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             data_dones.append(success.cpu().numpy())
             if(timestep >= 220):
                 # save dataset
-                dataset_save_path = os.path.join(args_cli.dataset_save_path, f"{task_name}_mass_{args_cli.mass_low}_{args_cli.mass_high}_seed_{args_cli.seed}_{time.time()}.npz")
+                dataset_save_path = os.path.join(args_cli.dataset_save_path, f"{task_name}_mass_{args_cli.mass_list}_seed_{args_cli.seed}_{time.time()}.npz")
                 os.makedirs(args_cli.dataset_save_path, exist_ok=True)
                 npz_dict = {
                     "states":  np.array(data_states,  dtype=object),
