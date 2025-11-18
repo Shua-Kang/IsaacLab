@@ -33,7 +33,7 @@ parser.add_argument(
     "--mass_list",
     type=float,
     nargs="+",
-    default=None,
+    default=[0.01,0.1,0.05],
     help="A list of masses to use for initialization (space separated, e.g. --mass_list 0.1 0.01 0.05).",
 )
 # append AppLauncher cli args
@@ -123,7 +123,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.enable_global_camera = True
     
 
-    video_dir = os.path.join(args_cli.log_dir, f"mass_{args_cli.mass}_videos")
+    video_dir = os.path.join(args_cli.log_dir, f"mass_{args_cli.mass_list}_videos")
     os.makedirs(video_dir, exist_ok=True)
     env_cfg.mass_range = args_cli.mass_list
 
