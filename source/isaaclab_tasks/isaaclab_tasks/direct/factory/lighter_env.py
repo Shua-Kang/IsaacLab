@@ -1147,8 +1147,9 @@ class LighterEnv(DirectRLEnv):
             if(self.initial_tactile_image is not None):
                 tactile_depth_image = self.scene.sensors["tactile_camera"].data.output["distance_to_image_plane"].clone()
                 # self.tactile_depth_image = (tactile_depth_image - self.initial_tactile_image) / (torch.max(self.initial_tactile_image) - torch.min(self.initial_tactile_image))
-                
-                self.tactile_depth_image = (tactile_depth_image - torch.min(self.initial_tactile_image)) / (torch.max(self.initial_tactile_image) - torch.min(self.initial_tactile_image))
+                # import pdb; pdb.set_trace()
+                # print("Torch MIN MAX", torch.min(tactile_depth_image), torch.max(tactile_depth_image))
+                self.tactile_depth_image = (tactile_depth_image - 0.0229) / (0.0250 - 0.0229)
                 # print(torch.max(self.tactile_depth_image))
                 torchvision.utils.save_image(self.tactile_depth_image.transpose(1, 3).transpose(2, 3), os.path.join(self.log_img_save_path, "tactile_image.png" ) )
                 # save current and initial tactile image
@@ -1231,7 +1232,7 @@ class LighterEnv(DirectRLEnv):
         obs_dict, state_dict = self._get_factory_obs_state_dict()
         obs_tensors = factory_utils.collapse_obs_dict(obs_dict, self.cfg.obs_order + ["prev_actions"])
         state_tensors = factory_utils.collapse_obs_dict(state_dict, self.cfg.state_order + ["prev_actions"])
-        debug = False
+        debug = True
 
         if debug:
             if self.enable_gripper_camera:
