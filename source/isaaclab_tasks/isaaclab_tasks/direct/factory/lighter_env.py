@@ -1232,7 +1232,7 @@ class LighterEnv(DirectRLEnv):
         obs_dict, state_dict = self._get_factory_obs_state_dict()
         obs_tensors = factory_utils.collapse_obs_dict(obs_dict, self.cfg.obs_order + ["prev_actions"])
         state_tensors = factory_utils.collapse_obs_dict(state_dict, self.cfg.state_order + ["prev_actions"])
-        debug = True
+        debug = False
 
         if debug:
             if self.enable_gripper_camera:
